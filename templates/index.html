@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Team 邀请助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'fade-in': 'fadeIn 0.6s ease-out forwards',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        fadeIn: {
+                            'from': { opacity: '0', transform: 'translateY(10px)' },
+                            'to': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                    },
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { background: #0a0a0f; }
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(6, 182, 212, 0.1), transparent),
+                radial-gradient(ellipse 50% 30% at 20% 80%, rgba(244, 114, 182, 0.1), transparent);
+        }
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: float 8s ease-in-out infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .orb-1 {
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.4), rgba(6, 182, 212, 0.2));
+            top: -50px;
+            right: -50px;
+        }
+        .orb-2 {
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(135deg, rgba(244, 114, 182, 0.3), rgba(139, 92, 246, 0.2));
+            bottom: -30px;
+            left: -30px;
+            animation-delay: -4s;
+        }
+        .main-card {
+            background: rgba(17, 17, 27, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 100px -20px rgba(139, 92, 246, 0.2);
+        }
+        .login-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            transition: all 0.3s ease;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px -15px rgba(16, 185, 129, 0.4);
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 sm:p-6">
+    <div class="bg-mesh"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <!-- Logo 和标题 -->
+    <div class="text-center mb-8 animate-fade-in">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 mb-5 animate-float shadow-lg shadow-violet-500/30">
+            <i class="fa-solid fa-paper-plane text-2xl text-white"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-white mb-2">Team 邀请助手</h1>
+        <p class="text-slate-400 text-sm">Linux.do 社区专属通道</p>
+    </div>
+
+    <!-- 主卡片 -->
+    <div class="main-card w-full max-w-md rounded-3xl overflow-hidden animate-fade-in" style="animation-delay: 0.1s">
+        <!-- 空间状态 -->
+        <div class="p-6 border-b border-white/5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-violet-400"></i>
+                    当前空间状态
+                </h3>
+                <span id="stats-status" class="text-xs text-slate-500">加载中...</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div class="stat-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-violet-400" id="stat-in-use">-</div>
+                    <div class="text-xs text-slate-500 mt-1">已使用</div>
+                </div>
+                <div class="stat-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-cyan-400" id="stat-pending">-</div>
+                    <div class="text-xs text-slate-500 mt-1">待处理</div>
+                </div>
+                <div class="stat-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-slate-400" id="stat-total">-</div>
+                    <div class="text-xs text-slate-500 mt-1">总席位</div>
+                </div>
+            </div>
+            <!-- 剩余名额提示 -->
+            <div class="mt-4 text-center">
+                <div id="available-badge" class="inline-block px-4 py-2 rounded-full text-sm font-medium">
+                    <span id="available-text">检查中...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 登录区域 -->
+        <div class="p-6">
+            <a href="/login" id="login-btn" class="login-btn block w-full py-4 rounded-xl text-white font-semibold text-center">
+                <i class="fa-solid fa-right-to-bracket mr-2"></i>
+                使用 Linux DO 账号登录
+            </a>
+            <p class="text-xs text-slate-500 text-center mt-4">
+                <i class="fa-solid fa-shield-halved mr-1"></i>
+                需要信任等级 1 级以上
+            </p>
+        </div>
+    </div>
+
+    <!-- 名额已满提示 (默认隐藏) -->
+    <div id="seats-full-notice" class="hidden w-full max-w-md mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center animate-fade-in">
+        <div class="text-2xl mb-2">🚗</div>
+        <div class="text-red-400 font-medium">车门已焊死</div>
+        <div class="text-xs text-slate-500 mt-1">当前名额已满，请稍后再试</div>
+    </div>
+
+    <!-- 快捷链接 -->
+    <div class="w-full max-w-md mt-4 flex justify-center gap-4 animate-fade-in" style="animation-delay: 0.15s">
+        <a href="https://kyx-cloud-email.kkyyxx.top/" target="_blank" class="text-xs text-slate-500 hover:text-violet-400 transition-colors">
+            <i class="fa-solid fa-inbox mr-1"></i>邮箱系统
+        </a>
+        <a href="https://chatgpt.com/" target="_blank" class="text-xs text-slate-500 hover:text-cyan-400 transition-colors">
+            <i class="fa-solid fa-robot mr-1"></i>ChatGPT
+        </a>
+        <a href="https://linux.do/" target="_blank" class="text-xs text-slate-500 hover:text-green-400 transition-colors">
+            <i class="fa-solid fa-comments mr-1"></i>Linux.do
+        </a>
+    </div>
+
+    <!-- 底部 -->
+    <p class="mt-6 text-xs text-slate-600 animate-fade-in" style="animation-delay: 0.2s">
+        Powered by Linux.do · 请勿滥用
+    </p>
+
+    <script>
+        function loadStats() {
+            fetch('/stats')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        document.getElementById('stats-status').textContent = '获取失败';
+                        return;
+                    }
+                    const d = data.data;
+                    document.getElementById('stat-in-use').textContent = d.seats_in_use ?? '-';
+                    document.getElementById('stat-pending').textContent = d.pending_invites ?? '-';
+                    document.getElementById('stat-total').textContent = d.seats_entitled ?? '-';
+                    document.getElementById('stats-status').textContent = '';
+                    
+                    const available = (d.seats_entitled || 0) - (d.seats_in_use || 0) - (d.pending_invites || 0);
+                    const badge = document.getElementById('available-badge');
+                    const text = document.getElementById('available-text');
+                    const loginBtn = document.getElementById('login-btn');
+                    const fullNotice = document.getElementById('seats-full-notice');
+                    
+                    if (available > 0) {
+                        badge.className = 'inline-block px-4 py-2 rounded-full text-sm font-medium bg-green-500/10 border border-green-500/30 text-green-400';
+                        text.innerHTML = '<i class="fa-solid fa-check-circle mr-1"></i>剩余 ' + available + ' 个名额';
+                        loginBtn.classList.remove('opacity-50', 'pointer-events-none');
+                        fullNotice.classList.add('hidden');
+                    } else {
+                        badge.className = 'inline-block px-4 py-2 rounded-full text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-400';
+                        text.innerHTML = '<i class="fa-solid fa-ban mr-1"></i>名额已满';
+                        loginBtn.classList.add('opacity-50', 'pointer-events-none');
+                        fullNotice.classList.remove('hidden');
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('stats-status').textContent = '网络错误';
+                });
+        }
+
+        loadStats();
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>

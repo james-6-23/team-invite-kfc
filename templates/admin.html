@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台管理 - Team 邀请助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { background: #0a0a0f; }
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.08), transparent);
+        }
+        .table-row:hover { background: rgba(255,255,255,0.02); }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen p-4 sm:p-6">
+    <div class="bg-mesh"></div>
+    
+    <div class="max-w-6xl mx-auto">
+        <!-- 顶部 -->
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-shield-halved text-violet-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-white">后台管理</h1>
+                    <p class="text-xs text-slate-500">邀请记录管理</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/" class="text-sm text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-home mr-1"></i>首页
+                </a>
+                <a href="/admin/logout" class="text-sm text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-right-from-bracket mr-1"></i>登出
+                </a>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+            <div class="p-4 rounded-xl bg-white/5 border border-white/5">
+                <div class="text-2xl font-bold text-white" id="stat-total">-</div>
+                <div class="text-xs text-slate-500 mt-1">总邀请数</div>
+            </div>
+            <div class="p-4 rounded-xl bg-white/5 border border-white/5">
+                <div class="text-2xl font-bold text-green-400" id="stat-success">-</div>
+                <div class="text-xs text-slate-500 mt-1">成功</div>
+            </div>
+            <div class="p-4 rounded-xl bg-white/5 border border-white/5">
+                <div class="text-2xl font-bold text-red-400" id="stat-fail">-</div>
+                <div class="text-xs text-slate-500 mt-1">失败</div>
+            </div>
+            <div class="p-4 rounded-xl bg-white/5 border border-white/5">
+                <div class="text-2xl font-bold text-violet-400" id="stat-seats">-</div>
+                <div class="text-xs text-slate-500 mt-1">剩余席位</div>
+            </div>
+        </div>
+
+        <!-- 记录表格 -->
+        <div class="rounded-xl bg-white/5 border border-white/5 overflow-hidden">
+            <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                <h2 class="font-semibold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-list text-violet-400"></i>
+                    邀请记录
+                </h2>
+                <button onclick="loadRecords()" class="text-sm text-violet-400 hover:text-violet-300">
+                    <i class="fa-solid fa-refresh mr-1"></i>刷新
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-slate-500 border-b border-white/5">
+                            <th class="p-3 font-medium">ID</th>
+                            <th class="p-3 font-medium">Linux DO 用户</th>
+                            <th class="p-3 font-medium">TL</th>
+                            <th class="p-3 font-medium">分配邮箱</th>
+                            <th class="p-3 font-medium">密码</th>
+                            <th class="p-3 font-medium">状态</th>
+                            <th class="p-3 font-medium">时间</th>
+                            <th class="p-3 font-medium">IP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-body">
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-slate-500">
+                                <i class="fa-solid fa-spinner animate-spin mr-2"></i>加载中...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 空状态 -->
+            <div id="empty-state" class="hidden p-8 text-center text-slate-500">
+                <i class="fa-solid fa-inbox text-3xl mb-2"></i>
+                <p>暂无邀请记录</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function loadStats() {
+            // 加载邀请统计
+            fetch('/api/admin/stats')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('stat-total').textContent = data.stats.total_invites;
+                        document.getElementById('stat-success').textContent = data.stats.success_count;
+                        document.getElementById('stat-fail').textContent = data.stats.fail_count;
+                    }
+                });
+            
+            // 加载席位统计
+            fetch('/stats')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        const d = data.data;
+                        const available = (d.seats_entitled || 0) - (d.seats_in_use || 0) - (d.pending_invites || 0);
+                        document.getElementById('stat-seats').textContent = available;
+                    }
+                });
+        }
+
+        function loadRecords() {
+            fetch('/api/admin/records')
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.getElementById('records-body');
+                    const emptyState = document.getElementById('empty-state');
+                    
+                    if (!data.success || data.records.length === 0) {
+                        tbody.innerHTML = '';
+                        emptyState.classList.remove('hidden');
+                        return;
+                    }
+                    
+                    emptyState.classList.add('hidden');
+                    tbody.innerHTML = data.records.map(r => `
+                        <tr class="table-row border-b border-white/5">
+                            <td class="p-3 text-slate-400">#${r.id}</td>
+                            <td class="p-3">
+                                <div class="text-white">${r.linuxdo_name || r.linuxdo_username}</div>
+                                <div class="text-xs text-slate-500">@${r.linuxdo_username}</div>
+                            </td>
+                            <td class="p-3">
+                                <span class="px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 text-xs">TL${r.trust_level}</span>
+                            </td>
+                            <td class="p-3 font-mono text-xs text-slate-300">${r.email}</td>
+                            <td class="p-3 font-mono text-xs text-slate-400">${r.password}</td>
+                            <td class="p-3">
+                                ${r.success 
+                                    ? '<span class="px-2 py-0.5 rounded bg-green-500/20 text-green-400 text-xs">成功</span>'
+                                    : '<span class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-xs">失败</span>'
+                                }
+                            </td>
+                            <td class="p-3 text-xs text-slate-500">${r.created_at}</td>
+                            <td class="p-3 text-xs text-slate-500">${r.ip}</td>
+                        </tr>
+                    `).join('');
+                });
+        }
+
+        loadStats();
+        loadRecords();
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>

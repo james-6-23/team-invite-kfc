@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错误 - Team 邀请助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            background: #0a0a0f;
+        }
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(239, 68, 68, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(139, 92, 246, 0.1), transparent);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-mesh"></div>
+    
+    <div class="text-center max-w-md">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
+            <i class="fa-solid fa-circle-exclamation text-4xl text-red-400"></i>
+        </div>
+        
+        <h1 class="text-2xl font-bold text-white mb-4">出错了</h1>
+        
+        <p class="text-slate-400 mb-8">{{ message }}</p>
+        
+        <a href="/" class="inline-flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl transition-colors">
+            <i class="fa-solid fa-arrow-left"></i>
+            返回首页
+        </a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: team-invite-web
+    restart: unless-stopped
+    ports:
+      - "39001:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      # ChatGPT Team
+      - AUTHORIZATION_TOKEN=${AUTHORIZATION_TOKEN}
+      - ACCOUNT_ID=${ACCOUNT_ID}
+      # Linux DO OAuth
+      - LINUXDO_CLIENT_ID=${LINUXDO_CLIENT_ID}
+      - LINUXDO_CLIENT_SECRET=${LINUXDO_CLIENT_SECRET}
+      - LINUXDO_REDIRECT_URI=${LINUXDO_REDIRECT_URI:-http://127.0.0.1:39001/callback}
+      # 邮箱平台
+      - EMAIL_API_AUTH=${EMAIL_API_AUTH}
+      - EMAIL_API_BASE=${EMAIL_API_BASE:-https://kyx-cloud-email.kkyyxx.top/api/public}
+      - EMAIL_DOMAIN=${EMAIL_DOMAIN:-kyx03.de}
+      - EMAIL_ROLE=${EMAIL_ROLE:-gpt-team}
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=0
+      # 其他配置
+      - MIN_TRUST_LEVEL=${MIN_TRUST_LEVEL:-1}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+    depends_on:
+      - redis
+    networks:
+      - team-invite-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: team-invite-redis
+    restart: unless-stopped
+    command: >
+      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then
+        redis-server --appendonly yes --requirepass $$REDIS_PASSWORD;
+      else
+        redis-server --appendonly yes;
+      fi"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    volumes:
+      - redis-data:/data
+    networks:
+      - team-invite-network
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  team-invite-network:
+    driver: bridge
