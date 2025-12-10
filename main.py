@@ -15,6 +15,9 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key")
 
+# Session 持久化配置 (7天过期)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 app.logger.setLevel(logging.INFO)
 
@@ -77,6 +80,7 @@ redis_client = redis.Redis(connection_pool=redis_pool)
 # Redis Key
 INVITE_RECORDS_KEY = "team_invite:records"
 INVITE_COUNTER_KEY = "team_invite:counter"
+INVITE_LOCK_KEY = "team_invite:lock"
 
 # 后台管理密码
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
@@ -153,16 +157,30 @@ def stats_expired():
     return time.time() - stats_cache["timestamp"] >= STATS_CACHE_TTL
 
 
+class TeamBannedException(Exception):
+    """Team 账号被封禁异常"""
+    pass
+
+
 def refresh_stats():
+    """刷新 Team 状态，如果账号被封会抛出 TeamBannedException"""
     base_headers = build_base_headers()
     subs_url = f"https://chatgpt.com/backend-api/subscriptions?account_id={ACCOUNT_ID}"
     invites_url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/invites?offset=0&limit=1&query="
 
     subs_resp = requests.get(subs_url, headers=base_headers, timeout=10)
+    
+    # 检查是否被封禁 (401/403 表示账号异常)
+    if subs_resp.status_code in [401, 403]:
+        app.logger.error(f"Team account banned or unauthorized: {subs_resp.status_code}")
+        raise TeamBannedException("Team 账号状态异常")
     subs_resp.raise_for_status()
     subs_data = subs_resp.json()
 
     invites_resp = requests.get(invites_url, headers=base_headers, timeout=10)
+    if invites_resp.status_code in [401, 403]:
+        app.logger.error(f"Team account banned or unauthorized: {invites_resp.status_code}")
+        raise TeamBannedException("Team 账号状态异常")
     invites_resp.raise_for_status()
     invites_data = invites_resp.json()
 
@@ -263,21 +281,86 @@ def get_current_user():
     return session.get("user")
 
 
-def check_seats_available():
-    """检查是否还有可用名额"""
+def check_seats_available(force_refresh=False):
+    """检查是否还有可用名额
+    
+    Args:
+        force_refresh: 是否强制刷新数据（高并发场景下应该为 True）
+    """
     try:
-        if stats_expired():
+        if force_refresh or stats_expired():
             refresh_stats()
         data = stats_cache.get("data")
         if not data:
-            return True, None  # 无法获取数据时默认允许
+            return False, None  # 无法获取数据时默认拒绝（更安全）
         seats_in_use = data.get("seats_in_use", 0)
         seats_entitled = data.get("seats_entitled", 0)
         pending = data.get("pending_invites", 0)
         available = seats_entitled - seats_in_use - pending
         return available > 0, data
+    except TeamBannedException:
+        raise  # 传递给上层处理
     except Exception:
-        return True, None
+        return False, None  # 出错时默认拒绝
+
+
+def acquire_invite_lock(user_id, timeout=30):
+    """获取邀请分布式锁，防止并发超卖
+    
+    Args:
+        user_id: 用户ID，用于锁的唯一标识
+        timeout: 锁超时时间（秒）
+    
+    Returns:
+        lock_token: 锁令牌，用于释放锁；None 表示获取失败
+    """
+    lock_key = f"{INVITE_LOCK_KEY}:{user_id}"
+    lock_token = secrets.token_hex(8)
+    
+    # 使用 SET NX EX 原子操作获取锁
+    acquired = redis_client.set(lock_key, lock_token, nx=True, ex=timeout)
+    return lock_token if acquired else None
+
+
+def release_invite_lock(user_id, lock_token):
+    """释放邀请锁
+    
+    使用 Lua 脚本确保只有持有锁的人才能释放
+    """
+    lock_key = f"{INVITE_LOCK_KEY}:{user_id}"
+    lua_script = """
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+    else
+        return 0
+    end
+    """
+    try:
+        redis_client.eval(lua_script, 1, lock_key, lock_token)
+    except Exception:
+        pass  # 释放锁失败不影响主流程
+
+
+def acquire_global_invite_lock(timeout=10):
+    """获取全局邀请锁，用于检查和发送邀请的原子操作"""
+    lock_token = secrets.token_hex(8)
+    acquired = redis_client.set(INVITE_LOCK_KEY, lock_token, nx=True, ex=timeout)
+    return lock_token if acquired else None
+
+
+def release_global_invite_lock(lock_token):
+    """释放全局邀请锁"""
+    lua_script = """
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+    else
+        return 0
+    end
+    """
+    try:
+        redis_client.eval(lua_script, 1, INVITE_LOCK_KEY, lock_token)
+    except Exception:
+        pass
 
 
 def add_invite_record(user, email, password, success, message=""):
@@ -409,6 +492,7 @@ def callback():
         }
 
         app.logger.info(f"User logged in: {user_info.get('username')} (TL{trust_level})")
+        session.permanent = True  # 启用持久化 Session
         return redirect(url_for("invite_page"))
 
     except Exception as e:
@@ -434,82 +518,124 @@ def invite_page():
 
 @app.route("/api/auto-invite", methods=["POST"])
 def auto_invite():
-    """自动邀请 API - 执行完整的邀请流程"""
+    """自动邀请 API - 执行完整的邀请流程（带并发控制）"""
     if not is_logged_in():
         return jsonify({"success": False, "message": "请先登录"}), 401
 
     user = get_current_user()
+    user_id = user.get("id")
     client_ip = get_client_ip_address()
 
-    # 检查名额
-    available, stats_data = check_seats_available()
-    if not available:
+    # 1. 获取用户锁（防止同一用户重复提交）
+    user_lock = acquire_invite_lock(user_id, timeout=60)
+    if not user_lock:
         return jsonify({
             "success": False,
-            "message": "车门已焊死，名额已满",
-            "seats_full": True,
-            "stats": stats_data
-        })
+            "message": "您有一个邀请正在处理中，请稍后再试",
+            "retry_after": 10
+        }), 429
 
-    # 生成邮箱和密码
-    email = generate_email_for_user(user["username"])
-    password = generate_password()
+    try:
+        # 2. 获取全局锁（防止并发超卖）
+        global_lock = None
+        for _ in range(3):  # 重试3次获取全局锁
+            global_lock = acquire_global_invite_lock(timeout=15)
+            if global_lock:
+                break
+            time.sleep(0.5)
+        
+        if not global_lock:
+            return jsonify({
+                "success": False,
+                "message": "系统繁忙，请稍后再试",
+                "retry_after": 5
+            }), 503
 
-    app.logger.info(f"Starting auto-invite for user {user['username']} ({email}) from IP: {client_ip}")
+        try:
+            # 3. 在锁内强制刷新检查名额（双重检查）
+            try:
+                available, stats_data = check_seats_available(force_refresh=True)
+            except TeamBannedException:
+                return jsonify({
+                    "success": False,
+                    "message": "车已翻 - Team 账号状态异常",
+                    "banned": True
+                }), 503
 
-    result = {
-        "email": email,
-        "password": password,
-        "steps": []
-    }
+            if not available:
+                return jsonify({
+                    "success": False,
+                    "message": "车门已焊死，名额已满",
+                    "seats_full": True,
+                    "stats": stats_data
+                })
 
-    # 步骤1: 创建邮箱用户
-    success, msg = create_email_user(email, password, EMAIL_ROLE)
-    result["steps"].append({
-        "step": 1,
-        "name": "创建邮箱用户",
-        "success": success,
-        "message": msg if not success else "成功"
-    })
-    if not success and "已存在" not in msg:
-        add_invite_record(user, email, password, False, f"创建邮箱失败: {msg}")
-        return jsonify({"success": False, "message": f"创建邮箱失败: {msg}", "result": result})
+            # 4. 名额充足，开始邀请流程
+            email = generate_email_for_user(user["username"])
+            password = generate_password()
 
-    # 步骤2: 发送邀请
-    success, msg = send_chatgpt_invite(email)
-    result["steps"].append({
-        "step": 2,
-        "name": "发送 ChatGPT 邀请",
-        "success": success,
-        "message": "成功" if success else msg
-    })
-    if not success:
-        add_invite_record(user, email, password, False, f"发送邀请失败: {msg}")
-        return jsonify({"success": False, "message": f"发送邀请失败: {msg}", "result": result})
+            app.logger.info(f"Starting auto-invite for user {user['username']} ({email}) from IP: {client_ip}")
 
-    # 步骤3: 获取验证码 (异步方式，先返回，让前端轮询)
-    result["steps"].append({
-        "step": 3,
-        "name": "等待验证码",
-        "success": True,
-        "message": "邀请已发送，请稍后获取验证码"
-    })
+            result = {
+                "email": email,
+                "password": password,
+                "steps": []
+            }
 
-    session["pending_invite"] = {
-        "email": email,
-        "password": password,
-        "created_at": time.time()
-    }
+            # 步骤1: 创建邮箱用户
+            success, msg = create_email_user(email, password, EMAIL_ROLE)
+            result["steps"].append({
+                "step": 1,
+                "name": "创建邮箱用户",
+                "success": success,
+                "message": msg if not success else "成功"
+            })
+            if not success and "已存在" not in msg:
+                add_invite_record(user, email, password, False, f"创建邮箱失败: {msg}")
+                return jsonify({"success": False, "message": f"创建邮箱失败: {msg}", "result": result})
 
-    # 记录成功邀请
-    add_invite_record(user, email, password, True, "邀请发送成功")
+            # 步骤2: 发送邀请
+            success, msg = send_chatgpt_invite(email)
+            result["steps"].append({
+                "step": 2,
+                "name": "发送 ChatGPT 邀请",
+                "success": success,
+                "message": "成功" if success else msg
+            })
+            if not success:
+                add_invite_record(user, email, password, False, f"发送邀请失败: {msg}")
+                return jsonify({"success": False, "message": f"发送邀请失败: {msg}", "result": result})
 
-    return jsonify({
-        "success": True,
-        "message": "邀请流程已启动",
-        "result": result,
-        "next": "poll_code"
-    })
+            # 步骤3: 获取验证码 (异步方式，先返回，让前端轮询)
+            result["steps"].append({
+                "step": 3,
+                "name": "等待验证码",
+                "success": True,
+                "message": "邀请已发送，请稍后获取验证码"
+            })
+
+            session["pending_invite"] = {
+                "email": email,
+                "password": password,
+                "created_at": time.time()
+            }
+
+            # 记录成功邀请
+            add_invite_record(user, email, password, True, "邀请发送成功")
+
+            return jsonify({
+                "success": True,
+                "message": "邀请流程已启动",
+                "result": result,
+                "next": "poll_code"
+            })
+        finally:
+            # 释放全局锁
+            if global_lock:
+                release_global_invite_lock(global_lock)
+    finally:
+        # 释放用户锁
+        release_invite_lock(user_id, user_lock)
 
 
 @app.route("/api/poll-code", methods=["GET"])
@@ -632,6 +758,13 @@ def stats():
                 "updated_at": updated_at,
             }
         )
+    except TeamBannedException as e:
+        app.logger.error(f"Team banned detected from IP: {client_ip}")
+        return jsonify({
+            "success": False, 
+            "banned": True,
+            "message": "车已翻 - Team 账号状态异常"
+        }), 503
     except Exception as e:
         app.logger.error(f"Error fetching stats from IP: {client_ip}. Error: {str(e)}")
         return jsonify({"success": False, "message": f"Error fetching stats: {str(e)}"}), 500
@@ -653,6 +786,7 @@ def admin_login():
     password = request.form.get("password", "")
     if password == ADMIN_PASSWORD:
         session["admin_logged_in"] = True
+        session.permanent = True  # 启用持久化 Session
         return redirect(url_for("admin_page"))
     return render_template("admin_login.html", error="密码错误")
 

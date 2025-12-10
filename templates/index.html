@@ -1,28 +1,49 @@
 <!DOCTYPE html>
 <html lang="zh-CN" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Team 邀请助手</title>
+    <title>ChatGPT Team 999</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'SF Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+                    },
+                    colors: {
+                        ios: {
+                            bg: '#000000',
+                            card: 'rgba(28, 28, 30, 0.65)',
+                            border: 'rgba(255, 255, 255, 0.12)',
+                            blue: '#0A84FF',
+                            gray: '#8E8E93',
+                        }
+                    },
                     animation: {
                         'float': 'float 6s ease-in-out infinite',
-                        'fade-in': 'fadeIn 0.6s ease-out forwards',
+                        'fade-in': 'fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'scale-in': 'scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
                     },
                     keyframes: {
                         float: {
-                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '0%, 100%': { transform: 'translateY(0)' },
                             '50%': { transform: 'translateY(-10px)' },
                         },
                         fadeIn: {
-                            'from': { opacity: '0', transform: 'translateY(10px)' },
-                            'to': { opacity: '1', transform: 'translateY(0)' },
+                            'from': { opacity: '0' },
+                            'to': { opacity: '1' },
                         },
+                        scaleIn: {
+                            'from': { opacity: '0', transform: 'scale(0.95)' },
+                            'to': { opacity: '1', transform: 'scale(1)' },
+                        }
                     },
                 }
             }
@@ -30,185 +51,486 @@
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        body { background: #0a0a0f; }
+        body {
+            background: #000000;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
         .bg-mesh {
             position: fixed;
             inset: 0;
             z-index: -1;
             background:
-                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.15), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(6, 182, 212, 0.1), transparent),
-                radial-gradient(ellipse 50% 30% at 20% 80%, rgba(244, 114, 182, 0.1), transparent);
+                radial-gradient(circle at 0% 0%, rgba(10, 132, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(88, 86, 214, 0.15) 0%, transparent 50%);
+            opacity: 0.8;
         }
-        .orb {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.5;
-            animation: float 8s ease-in-out infinite;
-            pointer-events: none;
-            z-index: -1;
-        }
-        .orb-1 {
-            width: 300px;
-            height: 300px;
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.4), rgba(6, 182, 212, 0.2));
-            top: -50px;
-            right: -50px;
-        }
-        .orb-2 {
-            width: 200px;
-            height: 200px;
-            background: linear-gradient(135deg, rgba(244, 114, 182, 0.3), rgba(139, 92, 246, 0.2));
-            bottom: -30px;
-            left: -30px;
-            animation-delay: -4s;
-        }
-        .main-card {
-            background: rgba(17, 17, 27, 0.8);
-            backdrop-filter: blur(20px);
+
+        .glass-card {
+            background: rgba(20, 20, 25, 0.7);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 100px -20px rgba(139, 92, 246, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        .login-btn {
-            background: linear-gradient(135deg, #10b981, #059669);
+
+        .left-panel {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-2px);
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #0A84FF 0%, #0077ED 100%);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(10, 132, 255, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+
+        .liquid-btn {
+            background: linear-gradient(var(--liquid-button-color) 0 0) no-repeat calc(200% - var(--liquid-button-fill, 0%)) 100% / 200% var(--liquid-button-fill, 0.2em);
+            color: hsl(var(--primary));
+            transition: background 0.3s var(--liquid-button-delay, 0s), color 0.3s var(--liquid-button-delay, 0s), background-position 0.3s calc(0.3s - var(--liquid-button-delay, 0s));
+            --liquid-button-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .liquid-btn:hover {
+            --liquid-button-fill: 100%;
+            --liquid-button-delay: 0.1s;
+        }
+
+        .link-icon {
             transition: all 0.3s ease;
         }
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 20px 40px -15px rgba(16, 185, 129, 0.4);
-        }
-        .stat-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+
+        .link-icon:hover {
+            transform: translateY(-3px) scale(1.1);
         }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 sm:p-6">
+
+<body class="text-white min-h-screen flex items-center justify-center p-4">
     <div class="bg-mesh"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
 
-    <!-- Logo 和标题 -->
-    <div class="text-center mb-8 animate-fade-in">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 mb-5 animate-float shadow-lg shadow-violet-500/30">
-            <i class="fa-solid fa-paper-plane text-2xl text-white"></i>
-        </div>
-        <h1 class="text-3xl font-bold text-white mb-2">Team 邀请助手</h1>
-        <p class="text-slate-400 text-sm">Linux.do 社区专属通道</p>
-    </div>
-
-    <!-- 主卡片 -->
-    <div class="main-card w-full max-w-md rounded-3xl overflow-hidden animate-fade-in" style="animation-delay: 0.1s">
-        <!-- 空间状态 -->
-        <div class="p-6 border-b border-white/5">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-pie text-violet-400"></i>
-                    当前空间状态
-                </h3>
-                <span id="stats-status" class="text-xs text-slate-500">加载中...</span>
-            </div>
-            <div class="grid grid-cols-3 gap-3">
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold text-violet-400" id="stat-in-use">-</div>
-                    <div class="text-xs text-slate-500 mt-1">已使用</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold text-cyan-400" id="stat-pending">-</div>
-                    <div class="text-xs text-slate-500 mt-1">待处理</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold text-slate-400" id="stat-total">-</div>
-                    <div class="text-xs text-slate-500 mt-1">总席位</div>
-                </div>
-            </div>
-            <!-- 剩余名额提示 -->
-            <div class="mt-4 text-center">
-                <div id="available-badge" class="inline-block px-4 py-2 rounded-full text-sm font-medium">
-                    <span id="available-text">检查中...</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- 登录区域 -->
-        <div class="p-6">
-            <a href="/login" id="login-btn" class="login-btn block w-full py-4 rounded-xl text-white font-semibold text-center">
-                <i class="fa-solid fa-right-to-bracket mr-2"></i>
-                使用 Linux DO 账号登录
-            </a>
-            <p class="text-xs text-slate-500 text-center mt-4">
-                <i class="fa-solid fa-shield-halved mr-1"></i>
-                需要信任等级 1 级以上
-            </p>
+    <!-- 车已翻 Error Screen (默认隐藏) -->
+    <div id="crashed-screen" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black">
+        <div class="text-center animate-fade-in">
+            <div class="text-8xl mb-8">🚗💥</div>
+            <h1 class="text-6xl md:text-8xl font-black text-red-500 mb-4 tracking-tight">车已翻</h1>
+            <p class="text-zinc-500 text-lg mb-8">Team 账户状态异常，服务暂时不可用</p>
+            <button onclick="location.reload()" class="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white transition-all">
+                <i class="fa-solid fa-refresh mr-2"></i>重新检查
+            </button>
         </div>
     </div>
 
-    <!-- 名额已满提示 (默认隐藏) -->
-    <div id="seats-full-notice" class="hidden w-full max-w-md mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center animate-fade-in">
-        <div class="text-2xl mb-2">🚗</div>
-        <div class="text-red-400 font-medium">车门已焊死</div>
-        <div class="text-xs text-slate-500 mt-1">当前名额已满，请稍后再试</div>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 z-40 flex items-center justify-center bg-black">
+        <div class="text-center">
+            <div class="w-12 h-12 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-4 mx-auto"></div>
+            <p class="text-zinc-500 text-sm">正在检查车况...</p>
+        </div>
     </div>
 
-    <!-- 快捷链接 -->
-    <div class="w-full max-w-md mt-4 flex justify-center gap-4 animate-fade-in" style="animation-delay: 0.15s">
-        <a href="https://kyx-cloud-email.kkyyxx.top/" target="_blank" class="text-xs text-slate-500 hover:text-violet-400 transition-colors">
-            <i class="fa-solid fa-inbox mr-1"></i>邮箱系统
-        </a>
-        <a href="https://chatgpt.com/" target="_blank" class="text-xs text-slate-500 hover:text-cyan-400 transition-colors">
-            <i class="fa-solid fa-robot mr-1"></i>ChatGPT
-        </a>
-        <a href="https://linux.do/" target="_blank" class="text-xs text-slate-500 hover:text-green-400 transition-colors">
-            <i class="fa-solid fa-comments mr-1"></i>Linux.do
-        </a>
-    </div>
+    <!-- Main Card Container (16:9 Aspect Ratio on Desktop) -->
+    <div id="main-content"
+        class="hidden relative w-full max-w-5xl aspect-auto md:aspect-[16/9] glass-card rounded-[40px] p-2 flex flex-col md:flex-row overflow-hidden shadow-2xl animate-scale-in ring-1 ring-white/10">
 
-    <!-- 底部 -->
-    <p class="mt-6 text-xs text-slate-600 animate-fade-in" style="animation-delay: 0.2s">
-        Powered by Linux.do · 请勿滥用
-    </p>
+        <!-- Left Panel: Brand & Visuals -->
+        <!-- Left Panel: Brand & Visuals -->
+        <div
+            class="left-panel w-full md:w-[45%] rounded-[32px] p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group">
+            <!-- Background Gradients -->
+            <div
+                class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/10 via-transparent to-transparent opacity-50">
+            </div>
+
+            <!-- Animated Background Mesh -->
+            <div
+                class="absolute top-[-20%] right-[-20%] w-64 h-64 bg-blue-500/20 rounded-full blur-[80px] animate-float opacity-30 pointer-events-none">
+            </div>
+
+            <!-- Header -->
+            <div class="relative z-10 shrink-0">
+                <div
+                    class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#30D158]/20 to-[#0A84FF]/20 border border-white/10 flex items-center justify-center mb-4 backdrop-blur-md shadow-lg animation-float ring-1 ring-white/5">
+                    <img src="https://cdn.oaistatic.com/assets/favicon-l4nq08hd.svg" alt="ChatGPT"
+                        class="w-8 h-8 object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
+                </div>
+                <!-- Title Group -->
+                <div>
+                    <h1
+                        class="text-2xl md:text-3xl font-bold tracking-tight mb-1 bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-white/70">
+                        ChatGPT Team 999</h1>
+                    <div class="flex items-center gap-2">
+                        <span class="relative flex h-2 w-2">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        <p class="text-zinc-400 text-xs font-medium tracking-wide">Linux.do 社区专属通道</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats/Visuals -->
+            <div class="flex-1 flex flex-col justify-center gap-3 relative z-10 my-4 overflow-hidden">
+                <!-- 核心数据 - 三列紧凑布局 -->
+                <div class="grid grid-cols-3 gap-2">
+                    <div
+                        class="p-2.5 rounded-xl text-center group bg-white/[0.03] border border-white/5 backdrop-blur-sm hover:bg-white/[0.08] transition-all duration-300 hover:scale-[1.02] hover:border-blue-500/20 hover:shadow-lg shadow-black/20">
+                        <div class="text-[9px] text-zinc-500 mb-0.5 font-medium tracking-wide uppercase">已上车</div>
+                        <div class="text-xl font-bold text-blue-400 drop-shadow-sm group-hover:text-blue-300 transition-colors"
+                            id="stat-in-use">--</div>
+                    </div>
+                    <div
+                        class="p-2.5 rounded-xl text-center group bg-white/[0.03] border border-white/5 backdrop-blur-sm hover:bg-white/[0.08] transition-all duration-300 hover:scale-[1.02] hover:border-amber-500/20 hover:shadow-lg shadow-black/20">
+                        <div class="text-[9px] text-zinc-500 mb-0.5 font-medium tracking-wide uppercase">待上车</div>
+                        <div class="text-xl font-bold text-amber-400 drop-shadow-sm group-hover:text-amber-300 transition-colors"
+                            id="stat-pending">--</div>
+                    </div>
+                    <div
+                        class="p-2.5 rounded-xl text-center group bg-white/[0.03] border border-white/5 backdrop-blur-sm hover:bg-white/[0.08] transition-all duration-300 hover:scale-[1.02] hover:border-zinc-500/20 hover:shadow-lg shadow-black/20">
+                        <div class="text-[9px] text-zinc-500 mb-0.5 font-medium tracking-wide uppercase">总车位</div>
+                        <div class="text-xl font-bold text-zinc-200 drop-shadow-sm group-hover:text-white transition-colors"
+                            id="stat-total">--</div>
+                    </div>
+                </div>
+
+                <!-- 剩余名额突出显示 -->
+                <div
+                    class="p-3.5 rounded-xl bg-gradient-to-br from-white/[0.04] to-transparent border border-white/5 backdrop-blur-sm hover:border-green-500/20 transition-all duration-300 group shadow-lg shadow-black/10 relative overflow-hidden">
+                    <div
+                        class="absolute inset-0 bg-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    </div>
+                    <div class="flex items-center justify-between relative z-10">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center border border-green-500/10 group-hover:bg-green-500/20 group-hover:scale-110 transition-all duration-300 ring-1 ring-inset ring-green-500/5">
+                                <i class="fa-solid fa-ticket text-green-400 text-sm drop-shadow-md"></i>
+                            </div>
+                            <div>
+                                <div class="text-[9px] text-zinc-500 font-medium tracking-wide uppercase mb-0.5">剩余名额
+                                </div>
+                                <div class="text-xl font-bold text-green-400 tracking-tight drop-shadow-sm"
+                                    id="stat-available">--</div>
+                            </div>
+                        </div>
+                        <div class="text-right min-w-[40%] pl-4">
+                            <div class="w-full h-1.5 bg-zinc-800/50 rounded-full overflow-hidden border border-white/5"
+                                id="capacity-bar">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-all duration-1000 relative"
+                                    style="width: 0%">
+                                    <div class="absolute right-0 top-0 bottom-0 w-1 bg-white/50 blur-[1px]"></div>
+                                </div>
+                            </div>
+                            <div class="text-[9px] text-zinc-500 mt-1.5 font-mono text-right" id="capacity-text">--%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 订阅信息 - 简化版 -->
+                <div
+                    class="p-3 rounded-xl bg-white/[0.02] border border-white/5 backdrop-blur-sm group hover:bg-white/[0.04] transition-all duration-300">
+                    <div class="flex items-center justify-between mb-2 pb-2 border-b border-white/5 border-dashed">
+                        <span
+                            class="text-[9px] text-zinc-500 font-medium tracking-wide uppercase flex items-center gap-1.5">
+                            <i class="fa-solid fa-server text-[9px] opacity-70"></i>
+                            team-status
+                        </span>
+                        <div class="flex gap-1" id="sub-badges"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px]">
+                        <div class="flex flex-col gap-0.5">
+                            <span class="text-zinc-600 scale-[0.9] origin-left uppercase tacking-wider">有效期至</span>
+                            <span class="text-zinc-300 font-mono pl-0.5" id="sub-end-date">
+                                <span class="animate-pulse w-12 h-2.5 bg-white/10 inline-block rounded"></span>
+                            </span>
+                        </div>
+                        <div class="flex flex-col gap-0.5 text-right">
+                            <span class="text-zinc-600 scale-[0.9] origin-right uppercase tacking-wider">更新时间</span>
+                            <span class="text-zinc-400 font-mono pr-0.5 truncate" id="sub-updated">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="relative z-10 shrink-0">
+                <div class="flex items-center gap-3 pt-3 border-t border-white/5">
+                    <a href="https://kyx-cloud-email.kkyyxx.top/" target="_blank"
+                        class="link-icon w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 hover:text-white text-zinc-500 transition-all border border-transparent hover:border-white/10">
+                        <i class="fa-solid fa-inbox text-[10px]"></i>
+                    </a>
+                    <a href="https://chatgpt.com/" target="_blank"
+                        class="link-icon w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 hover:text-white text-zinc-500 transition-all border border-transparent hover:border-white/10">
+                        <i class="fa-solid fa-robot text-[10px]"></i>
+                    </a>
+                    <a href="https://linux.do/" target="_blank"
+                        class="link-icon w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 hover:text-white text-zinc-500 transition-all border border-transparent hover:border-white/10">
+                        <i class="fa-solid fa-comments text-[10px]"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Login Action -->
+        <div class="w-full md:w-[55%] p-8 md:p-16 flex flex-col justify-center relative bg-black/20">
+            <div class="max-w-sm mx-auto w-full">
+                <div class="text-center mb-10">
+                    <h2 class="text-2xl font-bold text-white mb-3">感谢vv佬</h2>
+                    <p class="text-zinc-500 text-sm leading-relaxed">
+                        车门焊死 随时翻车
+                    </p>
+                </div>
+
+                <!-- Status Badge -->
+                <div class="flex justify-center mb-8">
+                    <div id="availability-badge"
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-white/5 border border-white/10 backdrop-blur-md">
+                        <span class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+                        <span>检查名额中...</span>
+                    </div>
+                </div>
+
+                <!-- Login Button -->
+                <!-- Login Button -->
+                <a href="/login" id="login-btn" tabIndex="0"
+                    class="liquid-btn relative inline-flex gap-2 whitespace-nowrap rounded-lg text-sm font-medium cursor-pointer overflow-hidden disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive hover:bg-white/10 text-white h-12 px-6 py-2 items-center justify-center w-full transition-all duration-300 border border-white/10">
+                    <div class="flex items-center justify-center gap-3">
+                        <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                            <svg width="24" height="24" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"
+                                fill="none" style="min-width: 24px; min-height: 24px; flex-shrink: 0;">
+                                <clipPath id="a">
+                                    <circle cx="60" cy="60" r="47"></circle>
+                                </clipPath>
+                                <circle fill="#f0f0f0" cx="60" cy="60" r="50"></circle>
+                                <rect fill="#1c1c1e" clip-path="url(#a)" x="10" y="10" width="100" height="30"></rect>
+                                <rect fill="#f0f0f0" clip-path="url(#a)" x="10" y="40" width="100" height="40"></rect>
+                                <rect fill="#ffb003" clip-path="url(#a)" x="10" y="80" width="100" height="30"></rect>
+                            </svg>
+                        </div>
+                        <span class="transition-all duration-300 font-bold tracking-wide">使用 Linux Do 账户登录</span>
+                    </div>
+                </a>
+
+                <!-- Full Notice (Hidden by default) -->
+                <div id="seats-full-notice"
+                    class="hidden mt-6 p-4 rounded-xl bg-red-500/5 border border-red-500/10 text-center animate-fade-in">
+                    <div class="text-red-400 font-medium text-sm mb-1">⛔ 暂无名额</div>
+                    <div class="text-red-400/60 text-xs">当前车次已满员，请等待下一班</div>
+                </div>
+
+                <div class="mt-8 text-center">
+                    <div
+                        class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-white/5 border border-white/5 text-[10px] text-zinc-500">
+                        <i class="fa-solid fa-shield-halved text-zinc-500"></i>
+                        <span>需要信任等级 1 级以上</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
+        // Mock Data Support for Preview
+        const isPreview = window.location.protocol === 'file:' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+
+        function mockFetch(url) {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    if (url.includes('/stats')) {
+                        resolve({
+                            json: () => Promise.resolve({
+                                success: true,
+                                updated_at: '2025-12-11 06:03:40',
+                                data: {
+                                    seats_entitled: 1000,
+                                    seats_in_use: 974,
+                                    pending_invites: 25,
+                                    plan_type: 'team',
+                                    active_start: '2025-12-01T17:02:53Z',
+                                    active_until: '2026-01-01T17:02:53Z',
+                                    billing_period: 'monthly',
+                                    billing_currency: 'usd',
+                                    will_renew: true,
+                                    is_delinquent: false
+                                }
+                            })
+                        });
+                    }
+                }, 800);
+            });
+        }
+
+        const originalFetch = window.fetch;
+        window.fetch = function (url, options) {
+            return originalFetch(url, options).catch(() => {
+                return mockFetch(url);
+            });
+        };
+
+        function formatDate(dateInput) {
+            if (!dateInput) return '--';
+            // Handle both ISO string and Unix timestamp
+            const date = typeof dateInput === 'string' ? new Date(dateInput) : new Date(dateInput * 1000);
+            return date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+
         function loadStats() {
+            const badge = document.getElementById('availability-badge');
+
+            fetch('/stats')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const d = data.data;
+                    const available = (d.seats_entitled || 0) - (d.seats_in_use || 0) - (d.pending_invites || 0);
+
+                    // Update Left Panel Stats
+                    animateValue("stat-in-use", 0, d.seats_in_use || 0, 1000);
+                    animateValue("stat-pending", 0, d.pending_invites || 0, 1000);
+                    animateValue("stat-total", 0, d.seats_entitled || 0, 1000);
+                    animateValue("stat-available", 0, available, 1000);
+
+                    // Update capacity bar
+                    const total = d.seats_entitled || 1;
+                    const used = (d.seats_in_use || 0) + (d.pending_invites || 0);
+                    const percentage = Math.round((available / total) * 100);
+                    const capacityBar = document.querySelector('#capacity-bar > div');
+                    const capacityText = document.getElementById('capacity-text');
+                    if (capacityBar) capacityBar.style.width = percentage + '%';
+                    if (capacityText) capacityText.textContent = percentage + '% 空闲';
+
+                    // Update Subscription Badges - simplified
+                    const badgeContainer = document.getElementById('sub-badges');
+                    if (badgeContainer) {
+                        let html = '';
+                        if (d.plan_type) {
+                            html += `<span class="px-2 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">${d.plan_type.toUpperCase()}</span>`;
+                        }
+                        if (d.will_renew !== undefined) {
+                            html += `<span class="px-2 py-0.5 rounded text-[9px] ${d.will_renew ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'} border">${d.will_renew ? '自动续费' : '不续费'}</span>`;
+                        }
+                        badgeContainer.innerHTML = html;
+                    }
+
+                    // Update Dates
+                    if (d.active_until) {
+                        const dateEl = document.getElementById('sub-end-date');
+                        if (dateEl) {
+                            dateEl.textContent = formatDate(d.active_until).split(' ')[0];
+                        }
+                    }
+                    if (data.updated_at) {
+                        const updatedEl = document.getElementById('sub-updated');
+                        if (updatedEl) updatedEl.textContent = data.updated_at;
+                    }
+
+                    // Update UI State
+                    const loginBtn = document.getElementById('login-btn');
+                    const fullNotice = document.getElementById('seats-full-notice');
+
+                    if (available <= 0) {
+                        // 名额已满 - 红色
+                        badge.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md transition-all';
+                        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span><span>名额已满</span>';
+                        loginBtn.classList.add('opacity-50', 'pointer-events-none', 'grayscale');
+                        fullNotice.classList.remove('hidden');
+                    } else if (available <= 5) {
+                        // 名额紧张 (<=5) - 红色警告
+                        badge.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md transition-all';
+                        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span><span>即将满员 (仅剩 ' + available + ')</span>';
+                        loginBtn.classList.remove('opacity-50', 'pointer-events-none', 'grayscale');
+                        fullNotice.classList.add('hidden');
+                    } else if (available <= 20) {
+                        // 名额较少 (<=20) - 橙色
+                        badge.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-400 backdrop-blur-md transition-all';
+                        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span><span>名额紧张 (剩余 ' + available + ')</span>';
+                        loginBtn.classList.remove('opacity-50', 'pointer-events-none', 'grayscale');
+                        fullNotice.classList.add('hidden');
+                    } else {
+                        // 名额充足 (>20) - 绿色
+                        badge.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-green-500/10 border border-green-500/20 text-green-400 backdrop-blur-md transition-all';
+                        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span><span>名额充足 (剩余 ' + available + ')</span>';
+                        loginBtn.classList.remove('opacity-50', 'pointer-events-none', 'grayscale');
+                        fullNotice.classList.add('hidden');
+                    }
+                })
+                .catch(() => {
+                    badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span><span>系统维护中</span>';
+                });
+        }
+
+        function animateValue(id, start, end, duration) {
+            const obj = document.getElementById(id);
+            if (!obj) return;
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start);
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        function showCrashed() {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('main-content').classList.add('hidden');
+            document.getElementById('crashed-screen').classList.remove('hidden');
+        }
+
+        function showMain() {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('crashed-screen').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+        }
+
+        // 初始检查 Team 状态
+        function checkTeamStatus() {
             fetch('/stats')
                 .then(r => r.json())
                 .then(data => {
                     if (!data.success) {
-                        document.getElementById('stats-status').textContent = '获取失败';
+                        // API 返回失败，车已翻
+                        showCrashed();
                         return;
                     }
-                    const d = data.data;
-                    document.getElementById('stat-in-use').textContent = d.seats_in_use ?? '-';
-                    document.getElementById('stat-pending').textContent = d.pending_invites ?? '-';
-                    document.getElementById('stat-total').textContent = d.seats_entitled ?? '-';
-                    document.getElementById('stats-status').textContent = '';
-                    
-                    const available = (d.seats_entitled || 0) - (d.seats_in_use || 0) - (d.pending_invites || 0);
-                    const badge = document.getElementById('available-badge');
-                    const text = document.getElementById('available-text');
-                    const loginBtn = document.getElementById('login-btn');
-                    const fullNotice = document.getElementById('seats-full-notice');
-                    
-                    if (available > 0) {
-                        badge.className = 'inline-block px-4 py-2 rounded-full text-sm font-medium bg-green-500/10 border border-green-500/30 text-green-400';
-                        text.innerHTML = '<i class="fa-solid fa-check-circle mr-1"></i>剩余 ' + available + ' 个名额';
-                        loginBtn.classList.remove('opacity-50', 'pointer-events-none');
-                        fullNotice.classList.add('hidden');
-                    } else {
-                        badge.className = 'inline-block px-4 py-2 rounded-full text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-400';
-                        text.innerHTML = '<i class="fa-solid fa-ban mr-1"></i>名额已满';
-                        loginBtn.classList.add('opacity-50', 'pointer-events-none');
-                        fullNotice.classList.remove('hidden');
-                    }
+                    // 成功，显示主界面
+                    showMain();
+                    loadStats();
+                    setInterval(loadStats, 30000);
                 })
-                .catch(() => {
-                    document.getElementById('stats-status').textContent = '网络错误';
+                .catch(err => {
+                    // 网络错误或服务不可用，车已翻
+                    console.error('Team status check failed:', err);
+                    showCrashed();
                 });
         }
 
-        loadStats();
-        setInterval(loadStats, 30000);
+        // 页面加载时检查状态
+        checkTeamStatus();
     </script>
 </body>
+
 </html>

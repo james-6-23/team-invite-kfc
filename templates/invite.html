@@ -1,259 +1,674 @@
 <!DOCTYPE html>
 <html lang="zh-CN" class="dark">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>我的邀请 - Team 邀请助手</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'SF Mono', 'monospace'],
+                    },
+                    colors: {
+                        ios: {
+                            bg: '#000000',
+                            card: 'rgba(30, 30, 32, 0.70)',
+                            border: 'rgba(255, 255, 255, 0.1)',
+                            blue: '#0A84FF',
+                            green: '#30D158',
+                            red: '#FF453A',
+                            yellow: '#FFD60A',
+                            gray: '#98989D',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 10s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+                            '50%': { transform: 'translateY(-20px) rotate(1deg)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        body { background: #0a0a0f; }
+        body {
+            background: #000000;
+            overflow: hidden;
+            touch-action: none;
+        }
+
         .bg-mesh {
             position: fixed;
-            inset: 0;
+            inset: -50%;
             z-index: -1;
             background:
-                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.15), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(6, 182, 212, 0.1), transparent);
+                radial-gradient(circle at 50% 50%, rgba(10, 132, 255, 0.15), transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(48, 209, 88, 0.1), transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(94, 92, 230, 0.15), transparent 40%);
+            animation: float 20s ease-in-out infinite alternate;
+            opacity: 0.8;
         }
-        .main-card {
-            background: rgba(17, 17, 27, 0.8);
-            backdrop-filter: blur(20px);
+
+        .access-card {
+            background: rgba(30, 30, 32, 0.6);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.2),
+                0 20px 40px -10px rgba(0, 0, 0, 0.5),
+                0 0 80px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .access-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(255, 255, 255, 0.05) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #0A84FF, transparent);
+            opacity: 0.5;
+            animation: scan 4s linear infinite;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        @keyframes scan {
+            0% {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: translateY(500%);
+                opacity: 0;
+            }
+        }
+
+        .cyber-panel {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .ghost-input-group {
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
         }
-        .copy-btn:hover { background: rgba(139, 92, 246, 0.2); }
-        .copy-btn:active { transform: scale(0.95); }
+
+        .ghost-input-group:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .action-btn {
+            background: #0A84FF;
+            box-shadow: 0 0 20px rgba(10, 132, 255, 0.3);
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .action-btn:hover {
+            background: #007aff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 25px rgba(10, 132, 255, 0.4);
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(0.8);
+        }
+
+        .text-glow {
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .code-glow {
+            text-shadow: 0 0 15px rgba(48, 209, 88, 0.4);
+        }
+
+        .ratio-16-9-desktop {
+            aspect-ratio: 16/9;
+        }
+
+        @media (max-width: 1024px) {
+            .ratio-16-9-desktop {
+                aspect-ratio: auto;
+                height: auto;
+                min-height: 60vh;
+                max-height: 90vh;
+            }
+
+            body {
+                overflow-y: auto;
+            }
+        }
+
+        .vert-divider {
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.1), transparent);
+        }
+
+        /* Left Panel Specific Styles */
+        .identity-panel {
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(10, 132, 255, 0.03) 100%);
+        }
+
+        .avatar-ring {
+            background: conic-gradient(from 180deg, rgba(10, 132, 255, 0.4), rgba(48, 209, 88, 0.4), rgba(94, 92, 230, 0.4), rgba(10, 132, 255, 0.4));
+            padding: 3px;
+            border-radius: 50%;
+        }
+
+        .avatar-inner {
+            background: #1c1c1e;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+
+        .trust-badge {
+            background: linear-gradient(135deg, rgba(10, 132, 255, 0.2) 0%, rgba(94, 92, 230, 0.2) 100%);
+            border: 1px solid rgba(10, 132, 255, 0.3);
+        }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+<body class="text-white h-screen w-screen flex flex-col items-center justify-center p-4 sm:p-8">
     <div class="bg-mesh"></div>
 
-    <!-- 用户信息 -->
-    <div class="w-full max-w-md mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            {% if user.avatar_template %}
-            <img src="{{ user.avatar_template | replace('{size}', '64') }}" alt="avatar" class="w-9 h-9 rounded-full border border-violet-500/30">
-            {% else %}
-            <div class="w-9 h-9 rounded-full bg-violet-500/20 flex items-center justify-center">
-                <i class="fa-solid fa-user text-violet-400 text-sm"></i>
+    <!-- MAIN CONTAINER (16:9 on Desktop) -->
+    <div
+        class="access-card w-full max-w-[1280px] rounded-[32px] ratio-16-9-desktop flex flex-col md:flex-row relative group transition-all duration-700">
+        <div class="scan-line"></div>
+
+        <!-- LEFT PANEL: IDENTITY (35%) -->
+        <div class="identity-panel relative w-full md:w-[35%] p-6 md:p-10 flex flex-col justify-between z-20">
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs font-mono text-ios-gray tracking-widest opacity-60">
+                    <i class="fa-brands fa-linux"></i> LINUX.DO
+                </div>
+                <div
+                    class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/5 border border-white/10 text-zinc-300 tracking-wider backdrop-blur-sm">
+                    通行证
+                </div>
             </div>
-            {% endif %}
-            <div>
-                <div class="text-white text-sm font-medium">{{ user.name or user.username }}</div>
-                <div class="text-xs text-slate-500">@{{ user.username }} · TL{{ user.trust_level }}</div>
+
+            <!-- User Profile (Unified - JS will handle preview mode) -->
+            <div class="flex flex-col items-center text-center my-auto py-6">
+                <!-- Avatar Container -->
+                <div class="relative mb-6 group-hover:scale-105 transition-transform duration-500">
+                    <!-- Glow Effect -->
+                    <div
+                        class="absolute inset-0 bg-blue-500 rounded-full blur-3xl opacity-20 animate-pulse-slow scale-150">
+                    </div>
+
+                    <!-- Avatar Ring -->
+                    <div class="avatar-ring relative">
+                        <div class="avatar-inner w-28 h-28 md:w-36 md:h-36 flex items-center justify-center">
+                            <!-- Avatar Image (set by JS or Jinja) -->
+                            <img id="user-avatar" src="https://avatars.githubusercontent.com/u/0?v=4"
+                                data-jinja-src="{{ user.avatar_template | replace('{size}', '128') }}" alt="avatar"
+                                class="w-full h-full object-cover">
+                        </div>
+                    </div>
+
+                    <!-- Trust Level Badge -->
+                    <div
+                        class="trust-badge absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full flex items-center gap-2 shadow-lg backdrop-blur-md">
+                        <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                        <span id="user-trust-level" class="text-[11px] font-bold tracking-wider text-blue-300">等级
+                            3</span>
+                    </div>
+                </div>
+
+                <!-- User Name -->
+                <h2 id="user-display-name" class="text-2xl md:text-3xl font-bold tracking-tight mb-2 text-glow">
+                    Shane User
+                </h2>
+
+                <!-- Username Tag -->
+                <p id="user-handle" class="text-sm text-ios-gray font-mono flex items-center gap-2">
+                    <span class="w-1 h-1 rounded-full bg-green-500"></span>
+                    @shane
+                </p>
+
+                <!-- Member Since (Decorative) -->
+                <div
+                    class="mt-6 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] text-zinc-500 tracking-wider">
+                    已认证会员
+                </div>
+            </div>
+
+            <!-- Footer / System Status -->
+            <div class="space-y-3">
+                <div class="cyber-panel p-4 rounded-2xl">
+                    <div class="flex items-center justify-between text-[11px] font-medium">
+                        <span class="text-ios-gray tracking-wider">系统状态</span>
+                        <span id="seats-info" class="text-zinc-300 flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span> 连接中...
+                        </span>
+                    </div>
+                </div>
+                <a href="/logout"
+                    class="flex items-center justify-center gap-2 text-xs text-zinc-500 hover:text-red-400 transition-colors py-2 rounded-xl hover:bg-red-500/10">
+                    <i class="fa-solid fa-power-off"></i> 安全退出
+                </a>
             </div>
         </div>
-        <a href="/logout" class="text-xs text-slate-400 hover:text-white">登出</a>
-    </div>
 
-    <!-- 主卡片 -->
-    <div class="main-card w-full max-w-md rounded-2xl p-6">
-        <!-- 分配的邮箱 -->
-        <div class="mb-4">
-            <div class="text-xs text-slate-500 mb-2">您的专属邮箱</div>
-            <div class="flex items-center gap-2 p-3 bg-white/5 rounded-xl">
-                <i class="fa-solid fa-envelope text-violet-400"></i>
-                <span id="assigned-email" class="flex-1 font-mono text-white">{{ user.username | lower }}kfc@kyx03.de</span>
-                <button onclick="copyEmail()" class="copy-btn p-2 rounded-lg transition-all">
-                    <i id="copy-icon" class="fa-regular fa-copy text-slate-400"></i>
+        <!-- DIVIDER (Desktop only) -->
+        <div class="hidden md:block vert-divider h-full"></div>
+
+        <!-- RIGHT PANEL: OPERATIONAL (65%) -->
+        <div class="relative w-full md:w-[65%] p-6 md:p-10 flex flex-col z-20 overflow-hidden">
+            <!-- Top Links -->
+            <div class="flex justify-end gap-4 mb-6 md:mb-10">
+                <a href="https://kyx-cloud-email.kkyyxx.top/" target="_blank"
+                    class="text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5">
+                    <i class="fa-solid fa-inbox"></i> 邮箱
+                </a>
+                <a href="https://chatgpt.com/" target="_blank"
+                    class="text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5">
+                    <i class="fa-solid fa-robot"></i> ChatGPT
+                </a>
+                <a href="https://linux.do/" target="_blank"
+                    class="text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5">
+                    <i class="fa-solid fa-comments"></i> 社区
+                </a>
+            </div>
+
+            <!-- Main Interactive Area -->
+            <div class="flex-1 flex flex-col justify-center">
+
+                <!-- Credentials Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <!-- Email Field -->
+                    <div class="ghost-input-group p-4 rounded-2xl flex flex-col justify-center relative">
+                        <div class="text-[10px] font-bold text-ios-gray tracking-wider mb-2">专属邮箱</div>
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="font-mono text-sm md:text-base text-zinc-200 truncate select-all"
+                                id="assigned-email">
+                                shane@kyx03.de
+                            </div>
+                            <button onclick="copyEmail()"
+                                class="w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center text-zinc-400 hover:text-blue-400 transition-all shrink-0">
+                                <i id="copy-icon" class="fa-regular fa-copy text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Password Field -->
+                    <div class="ghost-input-group p-4 rounded-2xl flex flex-col justify-center relative">
+                        <div class="text-[10px] font-bold text-ios-gray tracking-wider mb-2">登录密码</div>
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="font-mono text-sm md:text-base text-zinc-200 tracking-wide"
+                                id="assigned-password">kfcvivo50</div>
+                            <button onclick="copyPassword()"
+                                class="w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center text-zinc-400 hover:text-blue-400 transition-all shrink-0">
+                                <i id="copy-pwd-icon" class="fa-regular fa-copy text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code Section -->
+                <div class="cyber-panel rounded-2xl p-4 md:p-5 text-center relative overflow-hidden mb-4">
+                    <div class="absolute inset-0 bg-gradient-to-t from-blue-500/5 to-transparent pointer-events-none">
+                    </div>
+
+                    <div class="text-[10px] font-mono text-blue-400 mb-1 opacity-80 tracking-widest">验证码</div>
+
+                    <div id="code-display"
+                        class="text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-zinc-600 transition-all duration-300 relative z-10 py-1">
+                        --- ---
+                    </div>
+
+                    <div id="code-status" class="text-[11px] text-zinc-500 mt-1 tracking-wide">等待授权</div>
+
+                    <!-- 复制验证码按钮 -->
+                    <button id="copy-code-btn" onclick="copyCode()"
+                        class="mt-3 px-4 py-2 rounded-lg bg-white/5 hover:bg-blue-500/20 border border-white/10 hover:border-blue-500/30 text-zinc-400 hover:text-blue-400 transition-all text-xs font-medium inline-flex items-center gap-2 opacity-50 cursor-not-allowed"
+                        disabled>
+                        <i id="copy-code-icon" class="fa-regular fa-copy"></i>
+                        <span>复制验证码</span>
+                    </button>
+                </div>
+
+                <!-- Action Button -->
+                <button id="get-code-btn" onclick="getCode()"
+                    class="w-full py-4 rounded-2xl action-btn text-white font-bold text-base tracking-wide flex items-center justify-center gap-3 relative overflow-hidden group/btn">
+                    <i class="fa-solid fa-fingerprint text-lg opacity-80"></i>
+                    <span>获取验证码</span>
                 </button>
             </div>
-        </div>
 
-        <!-- 密码 -->
-        <div class="mb-6">
-            <div class="text-xs text-slate-500 mb-2">登录密码</div>
-            <div class="flex items-center gap-2 p-3 bg-white/5 rounded-xl">
-                <i class="fa-solid fa-lock text-cyan-400"></i>
-                <span id="assigned-password" class="flex-1 font-mono text-white">kfcvivo50</span>
-                <button onclick="copyPassword()" class="copy-btn p-2 rounded-lg transition-all">
-                    <i id="copy-pwd-icon" class="fa-regular fa-copy text-slate-400"></i>
-                </button>
+            <!-- Bottom Decoration -->
+            <div class="mt-4 flex justify-between items-center text-[10px] text-zinc-600">
+                <span>🔒 安全加密连接</span>
+                <span id="user-id-footer">用户: shane</span>
             </div>
         </div>
-
-        <!-- 验证码区域 -->
-        <div class="mb-6">
-            <div class="text-xs text-slate-500 mb-2">登录验证码</div>
-            <div class="p-4 bg-white/5 rounded-xl text-center">
-                <div id="code-display" class="text-3xl font-bold font-mono text-slate-500 mb-3">------</div>
-                <div id="code-status" class="text-xs text-slate-500">点击下方按钮获取</div>
-            </div>
-        </div>
-
-        <!-- 获取验证码按钮 -->
-        <button id="get-code-btn" onclick="getCode()" 
-            class="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-            <i class="fa-solid fa-key mr-2"></i>
-            获取验证码
-        </button>
-
-        <!-- 提示信息 -->
-        <div id="message-box" class="hidden mt-4 p-3 rounded-xl text-sm text-center"></div>
     </div>
 
-    <!-- 快捷链接 -->
-    <div class="w-full max-w-md mt-4 grid grid-cols-2 gap-3">
-        <a href="https://kyx-cloud-email.kkyyxx.top/" target="_blank" 
-            class="flex items-center justify-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-violet-500/30 transition-all text-sm text-slate-400 hover:text-white">
-            <i class="fa-solid fa-inbox text-violet-400"></i>
-            邮箱系统
-        </a>
-        <a href="https://chatgpt.com/" target="_blank"
-            class="flex items-center justify-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-cyan-500/30 transition-all text-sm text-slate-400 hover:text-white">
-            <i class="fa-solid fa-robot text-cyan-400"></i>
-            ChatGPT
-        </a>
-    </div>
-
-    <!-- 空间状态 -->
-    <div class="w-full max-w-md mt-3 p-3 rounded-xl bg-white/5 border border-white/5">
-        <div class="flex items-center justify-between text-xs">
-            <span class="text-slate-500">空间状态</span>
-            <span id="seats-info" class="text-slate-400">加载中...</span>
-        </div>
-    </div>
-
-    <p class="mt-6 text-xs text-slate-600">Linux.do 社区专属</p>
-
+    <!-- JS Logic -->
     <script>
-        const username = '{{ user.username | lower }}'.replace(/[^a-z0-9]/g, '');
-        const email = username + 'kfc@kyx03.de';
-        document.getElementById('assigned-email').textContent = email;
+        // --- CONFIGURATION ---
+        // Jinja will replace these if running on server; otherwise use defaults for preview
+        const SERVER_DATA = {
+            username: '{{ user.username | lower }}',
+            name: '{{ user.name or user.username }}',
+            trustLevel: '{{ user.trust_level }}',
+            avatarUrl: '{{ user.avatar_template | replace("{size}", "128") }}'
+        };
 
-        function copyEmail() {
-            navigator.clipboard.writeText(email).then(() => {
-                const icon = document.getElementById('copy-icon');
+        // Check if we're in preview mode (Jinja syntax not processed)
+        const isPreview = SERVER_DATA.username.includes('{{');
+
+        // Default mock data for preview
+        const MOCK_DATA = {
+            username: 'shane',
+            name: 'Shane User',
+            trustLevel: '3',
+            avatarUrl: 'https://avatars.githubusercontent.com/u/0?v=4'
+        };
+
+        // Merge data: use server data if available, otherwise mock
+        const USER = isPreview ? MOCK_DATA : {
+            username: SERVER_DATA.username.replace(/[^a-z0-9]/g, '') || MOCK_DATA.username,
+            name: SERVER_DATA.name || MOCK_DATA.name,
+            trustLevel: SERVER_DATA.trustLevel || MOCK_DATA.trustLevel,
+            avatarUrl: SERVER_DATA.avatarUrl.includes('{{') ? MOCK_DATA.avatarUrl : SERVER_DATA.avatarUrl
+        };
+
+        const email = USER.username + 'kfc@kyx03.de';
+
+        // --- POPULATE UI ---
+        document.getElementById('user-avatar').src = USER.avatarUrl;
+        document.getElementById('user-display-name').textContent = USER.name;
+        document.getElementById('user-handle').innerHTML = `<span class="w-1 h-1 rounded-full bg-green-500"></span> @${USER.username}`;
+        document.getElementById('user-trust-level').textContent = `等级 ${USER.trustLevel}`;
+        document.getElementById('assigned-email').textContent = email;
+        document.getElementById('user-id-footer').textContent = `用户: ${USER.username}`;
+
+        // --- MOCK FETCH FOR PREVIEW ---
+        if (isPreview) {
+            console.log('🎨 Preview mode activated');
+            const originalFetch = window.fetch;
+            window.fetch = function (url) {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        if (url.includes('/stats')) {
+                            resolve({ json: () => Promise.resolve({ success: true, data: { seats_entitled: 100, seats_in_use: 42, pending_invites: 5 } }) });
+                        } else if (url.includes('/api/poll-code') || url.includes('/api/auto-invite')) {
+                            resolve({ json: () => Promise.resolve({ found: true, success: true, code: Math.floor(100000 + Math.random() * 900000).toString() }) });
+                        } else {
+                            return originalFetch(url);
+                        }
+                    }, 800);
+                });
+            };
+        }
+
+        // --- UTILITY FUNCTIONS ---
+        function copyEmail() { copyToClip(email, 'copy-icon'); }
+        function copyPassword() { copyToClip('kfcvivo50', 'copy-pwd-icon'); }
+
+        function copyToClip(text, iconId) {
+            navigator.clipboard.writeText(text).then(() => {
+                const icon = document.getElementById(iconId);
                 icon.className = 'fa-solid fa-check text-green-400';
-                setTimeout(() => { icon.className = 'fa-regular fa-copy text-slate-400'; }, 1500);
+                setTimeout(() => { icon.className = 'fa-regular fa-copy text-sm'; }, 1500);
             });
         }
 
-        function copyPassword() {
-            navigator.clipboard.writeText('kfcvivo50').then(() => {
-                const icon = document.getElementById('copy-pwd-icon');
+        // 当前验证码存储
+        let currentCode = null;
+
+        function copyCode() {
+            if (!currentCode) return;
+            navigator.clipboard.writeText(currentCode).then(() => {
+                const icon = document.getElementById('copy-code-icon');
                 icon.className = 'fa-solid fa-check text-green-400';
-                setTimeout(() => { icon.className = 'fa-regular fa-copy text-slate-400'; }, 1500);
+                showMessage('验证码已复制 📋', 'success');
+                setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 1500);
             });
+        }
+
+        function enableCopyCodeBtn(code) {
+            currentCode = code;
+            const btn = document.getElementById('copy-code-btn');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
 
         function showMessage(text, type) {
-            const box = document.getElementById('message-box');
-            box.className = 'mt-4 p-3 rounded-xl text-sm text-center ' + 
-                (type === 'error' ? 'bg-red-500/10 border border-red-500/20 text-red-400' : 
-                 type === 'success' ? 'bg-green-500/10 border border-green-500/20 text-green-400' :
-                 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400');
-            box.textContent = text;
-            box.classList.remove('hidden');
-        }
+            // 创建或获取 toast 容器
+            let toast = document.getElementById('global-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'global-toast';
+                document.body.appendChild(toast);
+            }
 
-        function hideMessage() {
-            document.getElementById('message-box').classList.add('hidden');
+            // 设置样式和内容
+            const bgColor = type === 'error' ? 'bg-red-500/90' : 'bg-green-500/90';
+            const icon = type === 'error' ? 'fa-circle-xmark' : 'fa-circle-check';
+
+            toast.className = `fixed top-6 right-6 z-[9999] px-5 py-3.5 rounded-2xl ${bgColor} backdrop-blur-xl shadow-2xl text-white text-sm font-medium flex items-center gap-3 animate-slide-in`;
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${text}</span>`;
+            toast.style.cssText = 'animation: slideIn 0.3s ease-out; transform-origin: top right;';
+
+            // 添加动画样式（如果还没有）
+            if (!document.getElementById('toast-style')) {
+                const style = document.createElement('style');
+                style.id = 'toast-style';
+                style.textContent = `
+                    @keyframes slideIn {
+                        from { opacity: 0; transform: translateX(100px) scale(0.8); }
+                        to { opacity: 1; transform: translateX(0) scale(1); }
+                    }
+                    @keyframes slideOut {
+                        from { opacity: 1; transform: translateX(0) scale(1); }
+                        to { opacity: 0; transform: translateX(100px) scale(0.8); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // 3秒后消失
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
         function loadStats() {
-            fetch('/stats')
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) return;
-                    const d = data.data;
-                    const available = (d.seats_entitled || 0) - (d.seats_in_use || 0) - (d.pending_invites || 0);
-                    const info = document.getElementById('seats-info');
-                    if (available > 0) {
-                        info.innerHTML = '<span class="text-green-400">剩余 ' + available + ' 个名额</span>';
-                    } else {
-                        info.innerHTML = '<span class="text-red-400">名额已满</span>';
-                    }
-                });
+            fetch('/stats').then(r => r.json()).then(data => {
+                if (!data.success) return;
+                const d = data.data;
+                const available = (d.seats_entitled || 0) - (d.seats_in_use || 0) - (d.pending_invites || 0);
+                const info = document.getElementById('seats-info');
+                if (available > 0) {
+                    info.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> <span class="text-green-400">在线 (剩余 ' + available + ' 个)</span>';
+                } else {
+                    info.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> <span class="text-red-400">名额已满</span>';
+                }
+            }).catch(() => {
+                document.getElementById('seats-info').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span> <span class="text-yellow-400">离线</span>';
+            });
         }
 
         function getCode() {
             const btn = document.getElementById('get-code-btn');
             const codeDisplay = document.getElementById('code-display');
             const codeStatus = document.getElementById('code-status');
-            
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-2"></i>获取中...';
-            codeStatus.textContent = '正在查询邮箱...';
-            hideMessage();
 
-            // 先尝试直接获取验证码
+            btn.disabled = true;
+            btn.querySelector('span').textContent = '同步中...';
+            btn.querySelector('i').className = 'fa-solid fa-spinner animate-spin text-xl';
+            codeStatus.textContent = '正在建立安全连接...';
+
+            fetch('/api/poll-code').then(r => r.json()).then(data => {
+                if (data.found && data.code) {
+                    displayCode(data.code);
+                    return;
+                }
+
+                codeStatus.textContent = '正在请求邀请...';
+                return fetch('/api/auto-invite', { method: 'POST' }).then(r => r.json()).then(inviteData => {
+                    if (inviteData.seats_full) {
+                        showMessage('名额已满', 'error');
+                        resetBtn();
+                        return;
+                    }
+                    if (!inviteData.success) {
+                        showMessage(inviteData.message || '授权失败', 'error');
+                        resetBtn();
+                        return;
+                    }
+
+                    codeStatus.textContent = '等待验证码...';
+                    let attempts = 0;
+                    const pollCode = setInterval(() => {
+                        attempts++;
+                        fetch('/api/poll-code').then(r => r.json()).then(pollData => {
+                            if (pollData.found && pollData.code) {
+                                clearInterval(pollCode);
+                                displayCode(pollData.code);
+                            } else if (attempts >= 20) {
+                                clearInterval(pollCode);
+                                codeStatus.textContent = '超时';
+                                showMessage('信号丢失，请重试', 'error');
+                                resetBtn();
+                            } else {
+                                codeStatus.textContent = `正在扫描邮箱... (${attempts}/20)`;
+                            }
+                        });
+                    }, 3000);
+                });
+            }).catch(() => {
+                showMessage('网络错误', 'error');
+                resetBtn();
+            });
+
+            function displayCode(code) {
+                const fmt = code.length === 6 ? code.slice(0, 3) + ' ' + code.slice(3) : code;
+                codeDisplay.textContent = fmt;
+                codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-[#30D158] code-glow transition-all duration-300 relative z-10 py-1';
+                codeStatus.textContent = '授权成功 ✓';
+                resetBtn(true);
+                loadStats();
+
+                // 启用复制按钮
+                enableCopyCodeBtn(code);
+                showMessage('验证码获取成功', 'success');
+            }
+
+            function resetBtn(success = false) {
+                // 开始10秒冷却倒计时
+                let cooldown = 10;
+                btn.disabled = true;
+
+                const countdownInterval = setInterval(() => {
+                    btn.querySelector('i').className = 'fa-solid fa-clock text-xl opacity-60';
+                    btn.querySelector('span').textContent = `${cooldown}秒后可再次获取`;
+                    cooldown--;
+
+                    if (cooldown < 0) {
+                        clearInterval(countdownInterval);
+                        btn.disabled = false;
+                        btn.querySelector('i').className = success ? 'fa-solid fa-rotate text-xl' : 'fa-solid fa-fingerprint text-xl';
+                        btn.querySelector('span').textContent = success ? '刷新验证码' : '获取验证码';
+                    }
+                }, 1000);
+            }
+        }
+
+        // --- INIT ---
+        loadStats();
+        setInterval(loadStats, 30000);
+
+        // --- 自动轮询验证码 ---
+        let lastCode = null;
+        let autoPolling = true;
+
+        function autoCheckCode() {
+            if (!autoPolling) return;
+
+            const codeDisplay = document.getElementById('code-display');
+            const codeStatus = document.getElementById('code-status');
+
             fetch('/api/poll-code')
                 .then(r => r.json())
                 .then(data => {
-                    if (data.found && data.code) {
-                        codeDisplay.textContent = data.code;
-                        codeDisplay.className = 'text-3xl font-bold font-mono text-green-400 mb-3';
-                        codeStatus.textContent = '验证码获取成功';
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fa-solid fa-refresh mr-2"></i>刷新验证码';
-                        return;
-                    }
-                    
-                    // 没有验证码，需要先发送邀请
-                    codeStatus.textContent = '正在发送邀请...';
-                    return fetch('/api/auto-invite', { method: 'POST' })
-                        .then(r => r.json())
-                        .then(inviteData => {
-                            if (inviteData.seats_full) {
-                                showMessage('车门已焊死，名额已满', 'error');
-                                codeStatus.textContent = '名额已满';
-                                btn.disabled = false;
-                                btn.innerHTML = '<i class="fa-solid fa-key mr-2"></i>获取验证码';
-                                loadStats();
-                                return;
-                            }
-                            
-                            if (!inviteData.success) {
-                                showMessage(inviteData.message || '邀请失败', 'error');
-                                codeStatus.textContent = '请重试';
-                                btn.disabled = false;
-                                btn.innerHTML = '<i class="fa-solid fa-key mr-2"></i>获取验证码';
-                                return;
-                            }
+                    if (data.found && data.code && data.code !== lastCode) {
+                        // 发现新验证码
+                        lastCode = data.code;
+                        const fmt = data.code.length === 6 ? data.code.slice(0, 3) + ' ' + data.code.slice(3) : data.code;
+                        codeDisplay.textContent = fmt;
+                        codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-[#30D158] code-glow transition-all duration-300 relative z-10 py-1';
+                        codeStatus.textContent = '验证码已就绪 ✓';
 
-                            // 邀请成功，轮询获取验证码
-                            codeStatus.textContent = '等待验证码...';
-                            let attempts = 0;
-                            const maxAttempts = 20;
-                            
-                            const pollCode = setInterval(() => {
-                                attempts++;
-                                fetch('/api/poll-code')
-                                    .then(r => r.json())
-                                    .then(pollData => {
-                                        if (pollData.found && pollData.code) {
-                                            clearInterval(pollCode);
-                                            codeDisplay.textContent = pollData.code;
-                                            codeDisplay.className = 'text-3xl font-bold font-mono text-green-400 mb-3';
-                                            codeStatus.textContent = '验证码获取成功';
-                                            btn.disabled = false;
-                                            btn.innerHTML = '<i class="fa-solid fa-refresh mr-2"></i>刷新验证码';
-                                            loadStats();
-                                        } else if (attempts >= maxAttempts) {
-                                            clearInterval(pollCode);
-                                            codeDisplay.textContent = '------';
-                                            codeStatus.textContent = '暂无验证码';
-                                            showMessage('未收到验证码，请稍后重试', 'warning');
-                                            btn.disabled = false;
-                                            btn.innerHTML = '<i class="fa-solid fa-key mr-2"></i>获取验证码';
-                                        } else {
-                                            codeStatus.textContent = '等待验证码... (' + attempts + '/' + maxAttempts + ')';
-                                        }
-                                    });
-                            }, 3000);
-                        });
+                        // 启用复制按钮
+                        enableCopyCodeBtn(data.code);
+                        showMessage('新验证码已到达', 'success');
+
+                        // 更新按钮状态
+                        const btn = document.getElementById('get-code-btn');
+                        btn.querySelector('i').className = 'fa-solid fa-rotate text-xl';
+                        btn.querySelector('span').textContent = '刷新验证码';
+                    } else if (!data.found) {
+                        // 没有验证码，显示等待状态
+                        if (codeDisplay.textContent === '--- ---') {
+                            codeStatus.textContent = '等待验证码中...';
+                        }
+                    }
                 })
-                .catch(err => {
-                    showMessage('网络错误，请重试', 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-key mr-2"></i>获取验证码';
-                    codeStatus.textContent = '获取失败';
+                .catch(() => {
+                    // 网络错误时静默处理，不打断用户
                 });
         }
 
-        loadStats();
-        setInterval(loadStats, 30000);
+        // 页面加载后立即检查一次，然后每5秒检查一次
+        autoCheckCode();
+        setInterval(autoCheckCode, 5000);
     </script>
 </body>
+
 </html>
