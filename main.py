@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask_session import Session
 import requests
 import os
 import re
@@ -6,20 +7,43 @@ import secrets
 import time
 import json
 import redis
+import atexit
 from dotenv import load_dotenv
 import logging
 from datetime import datetime, timedelta, timezone
+from apscheduler.schedulers.background import BackgroundScheduler
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key")
 
-# Session 持久化配置 (7天过期)
+# Session 配置 - 使用 Redis 存储
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+app.config['SESSION_KEY_PREFIX'] = 'team_invite:session:'
+app.config['SESSION_USE_SIGNER'] = True
 
+# ==================== 日志配置 ====================
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
+# 自定义日志格式
+log_formatter = logging.Formatter(
+    '[%(asctime)s] %(levelname)s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+# 配置应用日志
 app.logger.setLevel(logging.INFO)
+for handler in app.logger.handlers:
+    handler.setFormatter(log_formatter)
+
+# 如果没有 handler，添加一个
+if not app.logger.handlers:
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(log_formatter)
+    app.logger.addHandler(stream_handler)
 
 
 class No404Filter(logging.Filter):
@@ -28,6 +52,39 @@ class No404Filter(logging.Filter):
 
 
 logging.getLogger("werkzeug").addFilter(No404Filter())
+
+
+def log_info(module: str, action: str, message: str = "", **kwargs):
+    """统一 INFO 日志格式"""
+    extra = " | ".join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
+    log_msg = f"[{module}] {action}"
+    if message:
+        log_msg += f" - {message}"
+    if extra:
+        log_msg += f" | {extra}"
+    app.logger.info(log_msg)
+
+
+def log_error(module: str, action: str, message: str = "", **kwargs):
+    """统一 ERROR 日志格式"""
+    extra = " | ".join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
+    log_msg = f"[{module}] {action}"
+    if message:
+        log_msg += f" - {message}"
+    if extra:
+        log_msg += f" | {extra}"
+    app.logger.error(log_msg)
+
+
+def log_warn(module: str, action: str, message: str = "", **kwargs):
+    """统一 WARNING 日志格式"""
+    extra = " | ".join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
+    log_msg = f"[{module}] {action}"
+    if message:
+        log_msg += f" - {message}"
+    if extra:
+        log_msg += f" | {extra}"
+    app.logger.warning(log_msg)
 
 # ChatGPT Team 配置
 _token = os.getenv("AUTHORIZATION_TOKEN", "")
@@ -55,8 +112,9 @@ EMAIL_ROLE = os.getenv("EMAIL_ROLE", "gpt-team")
 # 信任等级要求
 MIN_TRUST_LEVEL = int(os.getenv("MIN_TRUST_LEVEL", "1"))
 
-STATS_CACHE_TTL = 60
-stats_cache = {"timestamp": 0, "data": None}
+# 缓存配置
+STATS_CACHE_TTL = 120  # 统计数据缓存时间（秒）
+STATS_REFRESH_INTERVAL = 60  # 后台刷新间隔（秒）
 
 # Redis 配置
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -78,10 +136,22 @@ redis_pool = redis.ConnectionPool(
 )
 redis_client = redis.Redis(connection_pool=redis_pool)
 
+# Session 使用 Redis 存储（需要单独的连接，不使用 decode_responses）
+session_redis = redis.Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    password=REDIS_PASSWORD or None,
+    db=REDIS_DB
+)
+app.config['SESSION_REDIS'] = session_redis
+Session(app)
+
 # Redis Key
 INVITE_RECORDS_KEY = "team_invite:records"
 INVITE_COUNTER_KEY = "team_invite:counter"
 INVITE_LOCK_KEY = "team_invite:lock"
+STATS_CACHE_KEY = "team_invite:stats_cache"
+PENDING_INVITES_CACHE_KEY = "team_invite:pending_invites"
 
 # 后台管理密码
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
@@ -152,40 +222,82 @@ def validate_turnstile(turnstile_response):
         return False
 
 
-def stats_expired():
-    if stats_cache["data"] is None:
-        return True
-    return time.time() - stats_cache["timestamp"] >= STATS_CACHE_TTL
-
-
 class TeamBannedException(Exception):
     """Team 账号被封禁异常"""
     pass
 
 
-def refresh_stats():
-    """刷新 Team 状态，如果账号被封会抛出 TeamBannedException"""
+def get_cached_stats():
+    """从 Redis 获取缓存的统计数据"""
+    try:
+        cached = redis_client.get(STATS_CACHE_KEY)
+        if cached:
+            return json.loads(cached)
+    except Exception as e:
+        log_error("Cache", "读取统计缓存失败", str(e))
+    return None
+
+
+def set_cached_stats(stats_data):
+    """将统计数据存入 Redis 缓存"""
+    try:
+        cache_obj = {
+            "data": stats_data,
+            "timestamp": time.time(),
+            "updated_at": datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
+        }
+        redis_client.setex(STATS_CACHE_KEY, STATS_CACHE_TTL, json.dumps(cache_obj))
+    except Exception as e:
+        log_error("Cache", "写入统计缓存失败", str(e))
+
+
+def get_cached_pending_invites():
+    """从 Redis 获取缓存的待处理邀请"""
+    try:
+        cached = redis_client.get(PENDING_INVITES_CACHE_KEY)
+        if cached:
+            return json.loads(cached)
+    except Exception as e:
+        log_error("Cache", "读取待处理邀请缓存失败", str(e))
+    return None
+
+
+def set_cached_pending_invites(items, total):
+    """将待处理邀请存入 Redis 缓存"""
+    try:
+        cache_obj = {
+            "items": items,
+            "total": total,
+            "timestamp": time.time()
+        }
+        redis_client.setex(PENDING_INVITES_CACHE_KEY, STATS_CACHE_TTL, json.dumps(cache_obj))
+    except Exception as e:
+        log_error("Cache", "写入待处理邀请缓存失败", str(e))
+
+
+def fetch_stats_from_api():
+    """从 API 获取最新统计数据（内部使用）"""
     base_headers = build_base_headers()
     subs_url = f"https://chatgpt.com/backend-api/subscriptions?account_id={ACCOUNT_ID}"
     invites_url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/invites?offset=0&limit=1&query="
 
     subs_resp = requests.get(subs_url, headers=base_headers, timeout=10)
-    
+
     # 检查是否被封禁 (401/403 表示账号异常)
     if subs_resp.status_code in [401, 403]:
-        app.logger.error(f"Team account banned or unauthorized: {subs_resp.status_code}")
+        log_error("Stats", "账号异常", "Team account banned or unauthorized", status=subs_resp.status_code)
         raise TeamBannedException("Team 账号状态异常")
     subs_resp.raise_for_status()
     subs_data = subs_resp.json()
 
     invites_resp = requests.get(invites_url, headers=base_headers, timeout=10)
     if invites_resp.status_code in [401, 403]:
-        app.logger.error(f"Team account banned or unauthorized: {invites_resp.status_code}")
+        log_error("Stats", "账号异常", "Team account banned or unauthorized", status=invites_resp.status_code)
         raise TeamBannedException("Team 账号状态异常")
     invites_resp.raise_for_status()
     invites_data = invites_resp.json()
 
-    stats = {
+    return {
         "seats_in_use": subs_data.get("seats_in_use"),
         "seats_entitled": subs_data.get("seats_entitled"),
         "pending_invites": invites_data.get("total"),
@@ -198,9 +310,32 @@ def refresh_stats():
         "is_delinquent": subs_data.get("is_delinquent"),
     }
 
-    stats_cache["data"] = stats
-    stats_cache["timestamp"] = time.time()
-    return stats
+
+def refresh_stats(force=False):
+    """获取统计数据（优先从缓存读取）"""
+    if not force:
+        cached = get_cached_stats()
+        if cached:
+            return cached["data"], cached.get("updated_at")
+
+    # 缓存不存在或强制刷新，从 API 获取
+    stats = fetch_stats_from_api()
+    set_cached_stats(stats)
+    updated_at = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
+    log_info("Stats", "统计数据已刷新", seats_in_use=stats.get("seats_in_use"), pending=stats.get("pending_invites"))
+    return stats, updated_at
+
+
+def background_refresh_stats():
+    """后台刷新统计数据（由定时任务调用）"""
+    try:
+        stats = fetch_stats_from_api()
+        set_cached_stats(stats)
+        log_info("Background", "统计数据刷新完成", seats=stats.get("seats_in_use"), pending=stats.get("pending_invites"))
+    except TeamBannedException:
+        log_error("Background", "统计刷新失败", "账号被封禁")
+    except Exception as e:
+        log_error("Background", "统计刷新失败", str(e))
 
 
 # ==================== Linux DO OAuth 相关函数 ====================
@@ -227,16 +362,69 @@ def create_email_user(email, password, role_name):
         "list": [{"email": email, "password": password, "roleName": role_name}]
     }
     try:
-        app.logger.info(f"[邮箱创建] 请求: email={email}, role={role_name}, url={url}")
+        log_info("Email", "创建邮箱", email=email, role=role_name)
         response = requests.post(url, headers=headers, json=payload, timeout=10)
         data = response.json()
         success = data.get("code") == 200
         msg = data.get("message", "Unknown error")
-        app.logger.info(f"[邮箱创建] 响应: success={success}, code={data.get('code')}, message={msg}")
+        if success:
+            log_info("Email", "创建成功", email=email)
+        else:
+            log_warn("Email", "创建失败", msg, email=email, code=data.get("code"))
         return success, msg
     except Exception as e:
-        app.logger.error(f"[邮箱创建] 异常: {str(e)}")
+        log_error("Email", "创建异常", str(e), email=email)
         return False, str(e)
+
+
+def fetch_pending_invites_from_api(limit=100):
+    """从 API 获取待处理邀请列表（内部使用）"""
+    url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/invites?offset=0&limit={limit}&query="
+    headers = build_base_headers()
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("items", []), data.get("total", 0)
+        else:
+            log_error("Invite", "获取待处理邀请失败", status=response.status_code)
+            return [], 0
+    except Exception as e:
+        log_error("Invite", "获取待处理邀请异常", str(e))
+        return [], 0
+
+
+def get_pending_invites(force=False):
+    """获取待处理邀请列表（优先从缓存读取）"""
+    if not force:
+        cached = get_cached_pending_invites()
+        if cached:
+            return cached["items"], cached["total"]
+
+    # 缓存不存在或强制刷新
+    items, total = fetch_pending_invites_from_api(100)
+    set_cached_pending_invites(items, total)
+    return items, total
+
+
+def check_invite_pending(email):
+    """检查邮箱是否在待处理邀请列表中（实时查询，不使用缓存）"""
+    items, _ = fetch_pending_invites_from_api(100)
+    for item in items:
+        if item.get("email_address", "").lower() == email.lower():
+            return True
+    return False
+
+
+def background_refresh_pending_invites():
+    """后台刷新待处理邀请（由定时任务调用）"""
+    try:
+        items, total = fetch_pending_invites_from_api(100)
+        set_cached_pending_invites(items, total)
+        log_info("Background", "待处理邀请刷新完成", total=total)
+    except Exception as e:
+        log_error("Background", "待处理邀请刷新失败", str(e))
 
 
 def send_chatgpt_invite(email):
@@ -249,20 +437,23 @@ def send_chatgpt_invite(email):
         "resend_emails": True
     }
 
-    # 日志：检查关键配置
-    app.logger.info(f"[ChatGPT邀请] 开始发送: email={email}")
-    app.logger.info(f"[ChatGPT邀请] ACCOUNT_ID={ACCOUNT_ID}")
-    app.logger.info(f"[ChatGPT邀请] Token前20字符: {AUTHORIZATION_TOKEN[:20] if AUTHORIZATION_TOKEN else 'None'}...")
+    log_info("Invite", "发送邀请", email=email, account_id=ACCOUNT_ID[:8] + "..." if ACCOUNT_ID else "None")
 
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=10)
-        app.logger.info(f"[ChatGPT邀请] 响应: status={response.status_code}, body={response.text[:500]}")
         if response.status_code == 200:
-            return True, "success"
+            # 验证邀请是否真的发送成功
+            if check_invite_pending(email):
+                log_info("Invite", "邀请成功(已验证)", email=email)
+                return True, "success"
+            else:
+                log_warn("Invite", "邀请状态不确定", "API返回200但未在待处理列表中找到", email=email)
+                return True, "success"  # 仍然返回成功，可能有延迟
         else:
+            log_error("Invite", "邀请失败", response.text[:200], email=email, status=response.status_code)
             return False, f"HTTP {response.status_code}: {response.text[:200]}"
     except Exception as e:
-        app.logger.error(f"[ChatGPT邀请] 异常: {str(e)}")
+        log_error("Invite", "邀请异常", str(e), email=email)
         return False, str(e)
 
 
@@ -275,7 +466,7 @@ def get_verification_code(email, max_retries=10, interval=3):
     }
     payload = {"toEmail": email}
 
-    app.logger.info(f"[验证码] 开始获取: email={email}, max_retries={max_retries}")
+    log_info("Code", "获取验证码", email=email, max_retries=max_retries)
 
     for i in range(max_retries):
         try:
@@ -284,25 +475,21 @@ def get_verification_code(email, max_retries=10, interval=3):
 
             if data.get("code") == 200:
                 emails = data.get("data", [])
-                app.logger.info(f"[验证码] 第{i+1}次尝试: 找到 {len(emails)} 封邮件")
                 if emails:
                     latest_email = emails[0]
                     subject = latest_email.get("subject", "")
-                    app.logger.info(f"[验证码] 最新邮件主题: {subject[:100]}")
                     match = re.search(r"代码为\s*(\d{6})", subject)
                     if match:
                         code = match.group(1)
-                        app.logger.info(f"[验证码] 成功获取: {code}")
+                        log_info("Code", "验证码获取成功", email=email, code=code, attempt=i+1)
                         return code, None
-            else:
-                app.logger.warning(f"[验证码] 第{i+1}次尝试失败: {data.get('message')}")
         except Exception as e:
-            app.logger.error(f"[验证码] 第{i+1}次尝试异常: {str(e)}")
+            log_error("Code", "获取异常", str(e), email=email, attempt=i+1)
 
         if i < max_retries - 1:
             time.sleep(interval)
 
-    app.logger.warning(f"[验证码] 获取失败: 已尝试 {max_retries} 次")
+    log_warn("Code", "验证码获取失败", email=email, attempts=max_retries)
     return None, "未能获取验证码"
 
 
@@ -318,14 +505,12 @@ def get_current_user():
 
 def check_seats_available(force_refresh=False):
     """检查是否还有可用名额
-    
+
     Args:
         force_refresh: 是否强制刷新数据（高并发场景下应该为 True）
     """
     try:
-        if force_refresh or stats_expired():
-            refresh_stats()
-        data = stats_cache.get("data")
+        data, _ = refresh_stats(force=force_refresh)
         if not data:
             return False, None  # 无法获取数据时默认拒绝（更安全）
         seats_in_use = data.get("seats_in_use", 0)
@@ -418,7 +603,7 @@ def add_invite_record(user, email, password, success, message=""):
         redis_client.lpush(INVITE_RECORDS_KEY, json.dumps(record))
         return record
     except Exception as e:
-        app.logger.error(f"Failed to save invite record to Redis: {e}")
+        log_error("Redis", "保存记录失败", str(e))
         return None
 
 
@@ -428,7 +613,7 @@ def get_invite_records(limit=100):
         records = redis_client.lrange(INVITE_RECORDS_KEY, 0, limit - 1)
         return [json.loads(r) for r in records]
     except Exception as e:
-        app.logger.error(f"Failed to get invite records from Redis: {e}")
+        log_error("Redis", "获取记录失败", str(e))
         return []
 
 
@@ -495,7 +680,7 @@ def callback():
         token_json = token_resp.json()
 
         if "access_token" not in token_json:
-            app.logger.error(f"Token exchange failed: {token_json}")
+            log_error("Auth", "Token exchange failed", str(token_json))
             return render_template("error.html", message="获取令牌失败"), 400
 
         access_token = token_json["access_token"]
@@ -526,12 +711,12 @@ def callback():
             "active": user_info.get("active"),
         }
 
-        app.logger.info(f"User logged in: {user_info.get('username')} (TL{trust_level})")
+        log_info("Auth", "用户登录", username=user_info.get("username"), trust_level=trust_level)
         session.permanent = True  # 启用持久化 Session
         return redirect(url_for("invite_page"))
 
     except Exception as e:
-        app.logger.error(f"OAuth callback error: {str(e)}")
+        log_error("Auth", "OAuth callback error", str(e))
         return render_template("error.html", message=f"认证过程出错: {str(e)}"), 500
 
 
@@ -609,7 +794,7 @@ def auto_invite():
             email = generate_email_for_user(user["username"])
             password = generate_password()
 
-            app.logger.info(f"Starting auto-invite for user {user['username']} ({email}) from IP: {client_ip}")
+            log_info("Invite", "开始自动邀请流程", username=user["username"], email=email, ip=client_ip)
 
             result = {
                 "email": email,
@@ -704,15 +889,12 @@ def poll_code():
 
 @app.route("/")
 def index():
-    client_ip = get_client_ip_address()
-    app.logger.info(f"Index page accessed by IP: {client_ip}")
     return render_template("index.html", site_key=CF_TURNSTILE_SITE_KEY)
 
 
 @app.route("/send-invites", methods=["POST"])
 def send_invites():
     client_ip = get_client_ip_address()
-    app.logger.info(f"Invitation request received from IP: {client_ip}")
 
     raw_emails = request.form.get("emails", "").strip()
     email_list, valid_emails = parse_emails(raw_emails)
@@ -721,7 +903,7 @@ def send_invites():
     turnstile_valid = validate_turnstile(cf_turnstile_response)
 
     if not turnstile_valid:
-        app.logger.warning(f"CAPTCHA verification failed for IP: {client_ip}")
+        log_warn("API", "CAPTCHA验证失败", ip=client_ip)
         return jsonify({"success": False, "message": "CAPTCHA verification failed. Please try again."})
 
     if not email_list:
@@ -737,7 +919,7 @@ def send_invites():
     try:
         resp = requests.post(invite_url, headers=headers, json=payload, timeout=10)
         if resp.status_code == 200:
-            app.logger.info(f"Successfully sent invitations to {len(valid_emails)} emails from IP: {client_ip}")
+            log_info("API", "批量邀请成功", count=len(valid_emails), ip=client_ip)
             return jsonify(
                 {
                     "success": True,
@@ -745,7 +927,7 @@ def send_invites():
                 }
             )
         else:
-            app.logger.error(f"Failed to send invitations from IP: {client_ip}. Status code: {resp.status_code}")
+            log_error("API", "批量邀请失败", status=resp.status_code, ip=client_ip)
             return jsonify(
                 {
                     "success": False,
@@ -754,54 +936,34 @@ def send_invites():
                 }
             )
     except Exception as e:
-        app.logger.error(f"Error sending invitations from IP: {client_ip}. Error: {str(e)}")
+        log_error("API", "批量邀请异常", str(e), ip=client_ip)
         return jsonify({"success": False, "message": f"Error: {str(e)}"})
 
 
 @app.route("/stats")
 def stats():
-    client_ip = get_client_ip_address()
-    app.logger.info(f"Stats requested from IP: {client_ip}")
-
-    refresh = request.args.get("refresh") == "1"
+    force_refresh = request.args.get("refresh") == "1"
 
     try:
-        if refresh:
-            data = refresh_stats()
-            expired = False
-        else:
-            expired = stats_expired()
-            if stats_cache["data"] is None:
-                data = refresh_stats()
-                expired = False
-            else:
-                data = stats_cache["data"]
-
-        updated_at = None
-        if stats_cache["timestamp"]:
-            ts = stats_cache["timestamp"]
-            dt_utc = datetime.fromtimestamp(ts, tz=timezone.utc)
-            cst_tz = timezone(timedelta(hours=8))
-            dt_cst = dt_utc.astimezone(cst_tz)
-            updated_at = dt_cst.strftime("%Y-%m-%d %H:%M:%S")
+        data, updated_at = refresh_stats(force=force_refresh)
 
         return jsonify(
             {
                 "success": True,
                 "data": data,
-                "expired": expired,
                 "updated_at": updated_at,
+                "cached": not force_refresh
             }
         )
-    except TeamBannedException as e:
-        app.logger.error(f"Team banned detected from IP: {client_ip}")
+    except TeamBannedException:
+        log_error("Stats", "账号异常", "Team account banned")
         return jsonify({
-            "success": False, 
+            "success": False,
             "banned": True,
             "message": "车已翻 - Team 账号状态异常"
         }), 503
     except Exception as e:
-        app.logger.error(f"Error fetching stats from IP: {client_ip}. Error: {str(e)}")
+        log_error("Stats", "获取统计失败", str(e))
         return jsonify({"success": False, "message": f"Error fetching stats: {str(e)}"}), 500
 
 
@@ -861,23 +1023,84 @@ def admin_stats():
     })
 
 
+@app.route("/api/admin/pending-invites")
+def admin_pending_invites():
+    """获取 ChatGPT Team 待处理邀请列表"""
+    if not session.get("admin_logged_in"):
+        return jsonify({"success": False, "message": "未授权"}), 401
+
+    items, total = get_pending_invites(100)
+    log_info("Admin", "查询待处理邀请", total=total)
+    return jsonify({
+        "success": True,
+        "items": items,
+        "total": total
+    })
+
+
 # ==================== 健康检查 ====================
 
 @app.route("/health")
 def health_check():
     """健康检查端点"""
-    status = {"status": "healthy", "redis": False}
+    status = {"status": "healthy", "redis": False, "scheduler": False}
     try:
         redis_client.ping()
         status["redis"] = True
     except Exception:
         status["status"] = "degraded"
+
+    if scheduler and scheduler.running:
+        status["scheduler"] = True
+
     return jsonify(status)
 
 
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({"error": "Not found"}), 404
+
+
+# ==================== 后台定时任务 ====================
+
+def init_scheduler():
+    """初始化后台定时任务"""
+    global scheduler
+    scheduler = BackgroundScheduler(daemon=True)
+
+    # 每 60 秒刷新统计数据
+    scheduler.add_job(
+        func=background_refresh_stats,
+        trigger="interval",
+        seconds=STATS_REFRESH_INTERVAL,
+        id="refresh_stats",
+        name="刷新统计数据",
+        replace_existing=True
+    )
+
+    # 每 60 秒刷新待处理邀请
+    scheduler.add_job(
+        func=background_refresh_pending_invites,
+        trigger="interval",
+        seconds=STATS_REFRESH_INTERVAL,
+        id="refresh_pending_invites",
+        name="刷新待处理邀请",
+        replace_existing=True
+    )
+
+    scheduler.start()
+    log_info("Scheduler", "后台定时任务已启动", interval=f"{STATS_REFRESH_INTERVAL}s")
+
+    # 注册退出时关闭调度器
+    atexit.register(lambda: scheduler.shutdown())
+
+
+# 全局调度器变量
+scheduler = None
+
+# 初始化调度器（仅在非 reloader 进程中运行）
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+    init_scheduler()
 
 
 if __name__ == "__main__":

@@ -148,6 +148,50 @@
             </div>
         </div>
 
+        <!-- Pending Invites Section -->
+        <div class="glass-card rounded-2xl overflow-hidden shadow-2xl mb-8">
+            <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <h2 class="font-semibold text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-clock text-yellow-500 text-sm"></i>
+                    待处理邀请
+                    <span id="pending-count" class="ml-2 px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 text-xs font-medium border border-yellow-500/10">-</span>
+                </h2>
+                <button onclick="loadPendingInvites()"
+                    class="text-sm font-medium text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-yellow-500/10">
+                    <i class="fa-solid fa-refresh text-xs"></i> 刷新
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-xs uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-white/[0.01]">
+                            <th class="p-4 font-semibold">邮箱地址</th>
+                            <th class="p-4 font-semibold">角色</th>
+                            <th class="p-4 font-semibold">邀请时间</th>
+                            <th class="p-4 font-semibold">ID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pending-body" class="text-[13px] text-zinc-300">
+                        <tr>
+                            <td colspan="4" class="p-8 text-center text-zinc-500">
+                                <i class="fa-solid fa-spinner animate-spin mr-2"></i> 正在加载...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State for Pending -->
+            <div id="pending-empty" class="hidden py-12 text-center">
+                <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
+                    <i class="fa-solid fa-check-double text-xl text-green-500"></i>
+                </div>
+                <h3 class="text-white font-medium mb-1">没有待处理邀请</h3>
+                <p class="text-sm text-zinc-500">所有邀请已被处理完毕</p>
+            </div>
+        </div>
+
         <!-- Records Table -->
         <div class="glass-card rounded-2xl overflow-hidden shadow-2xl">
             <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
@@ -198,6 +242,20 @@
     </div>
 
     <script>
+        function formatDateTime(isoString) {
+            if (!isoString) return '-';
+            const date = new Date(isoString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
         function loadStats() {
             fetch('/api/admin/stats')
                 .then(r => r.json())
@@ -220,6 +278,48 @@
                     }
                 })
                 .catch(() => { });
+        }
+
+        function loadPendingInvites() {
+            fetch('/api/admin/pending-invites')
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.getElementById('pending-body');
+                    const emptyState = document.getElementById('pending-empty');
+                    const countBadge = document.getElementById('pending-count');
+
+                    if (!data.success || !data.items || data.items.length === 0) {
+                        tbody.innerHTML = '';
+                        emptyState.classList.remove('hidden');
+                        countBadge.textContent = '0';
+                        return;
+                    }
+
+                    emptyState.classList.add('hidden');
+                    countBadge.textContent = data.total;
+
+                    tbody.innerHTML = data.items.map(item => `
+                        <tr class="table-row border-b border-white/5 last:border-0">
+                            <td class="p-4">
+                                <div class="font-mono text-sm text-yellow-400 select-all">${item.email_address}</div>
+                            </td>
+                            <td class="p-4">
+                                <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[11px] border border-blue-500/10">${item.role}</span>
+                            </td>
+                            <td class="p-4 text-[12px] text-zinc-400">${formatDateTime(item.created_time)}</td>
+                            <td class="p-4 text-[10px] text-zinc-600 font-mono">${item.id.slice(0, 8)}...</td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(() => {
+                    document.getElementById('pending-body').innerHTML = `
+                        <tr>
+                            <td colspan="4" class="p-8 text-center text-red-400">
+                                <i class="fa-solid fa-exclamation-circle mr-2"></i> 加载失败
+                            </td>
+                        </tr>
+                    `;
+                });
         }
 
         function loadRecords() {
@@ -262,9 +362,14 @@
                 .catch(() => { });
         }
 
+        // 初始化加载
         loadStats();
+        loadPendingInvites();
         loadRecords();
+
+        // 定时刷新
         setInterval(loadStats, 30000);
+        setInterval(loadPendingInvites, 60000);
     </script>
 </body>
 

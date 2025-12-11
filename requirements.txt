@@ -1,5 +1,7 @@
 flask>=3.0.0
+flask-session>=0.8.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 redis>=5.0.0
 gunicorn>=21.0.0
+apscheduler>=3.10.0
