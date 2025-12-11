@@ -77,6 +77,50 @@
             background: rgba(255, 255, 255, 0.06);
             transform: translateY(-1px);
         }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Tab Styles */
+        .tab-btn {
+            position: relative;
+        }
+
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            color: white;
+        }
+
+        .tab-btn.active::after {
+            background: #60a5fa;
+            /* blue-400 */
+        }
     </style>
 </head>
 
@@ -108,7 +152,7 @@
             </div>
         </div>
 
-        <!-- Stats Grid -->
+        <!-- Stats Grid (Always Visible) -->
         <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
             <div class="stat-card p-6 rounded-2xl group">
                 <div class="flex items-center justify-between mb-3">
@@ -148,145 +192,261 @@
             </div>
         </div>
 
-        <!-- Pending Invites Section -->
-        <div class="glass-card rounded-2xl overflow-hidden shadow-2xl mb-8">
-            <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-                <h2 class="font-semibold text-base text-white flex items-center gap-2">
-                    <i class="fa-solid fa-clock text-yellow-500 text-sm"></i>
-                    待处理邀请
-                    <span id="pending-count" class="ml-2 px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 text-xs font-medium border border-yellow-500/10">-</span>
-                </h2>
-                <button onclick="loadPendingInvites()"
-                    class="text-sm font-medium text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-yellow-500/10">
-                    <i class="fa-solid fa-refresh text-xs"></i> 刷新
-                </button>
-            </div>
+        <!-- Tabs Navigation -->
+        <div class="flex items-center gap-1 mb-6 border-b border-white/10 px-2 overflow-x-auto">
+            <button onclick="switchTab('pending')" id="tab-btn-pending"
+                class="tab-btn px-4 py-3 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 whitespace-nowrap active">
+                <i class="fa-solid fa-clock text-yellow-500/80"></i>
+                待处理邀请
+                <span id="tab-count-pending"
+                    class="bg-white/10 text-zinc-300 px-1.5 py-0.5 rounded textxs hidden">0</span>
+            </button>
+            <button onclick="switchTab('members')" id="tab-btn-members"
+                class="tab-btn px-4 py-3 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-users text-blue-500/80"></i>
+                空间成员
+                <span id="tab-count-members"
+                    class="bg-white/10 text-zinc-300 px-1.5 py-0.5 rounded text-xs hidden">0</span>
+            </button>
+            <button onclick="switchTab('records')" id="tab-btn-records"
+                class="tab-btn px-4 py-3 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-list text-zinc-500"></i>
+                近期活动记录
+            </button>
+        </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="text-xs uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-white/[0.01]">
-                            <th class="p-4 font-semibold">邮箱地址</th>
-                            <th class="p-4 font-semibold">角色</th>
-                            <th class="p-4 font-semibold">邀请时间</th>
-                            <th class="p-4 font-semibold">ID</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pending-body" class="text-[13px] text-zinc-300">
-                        <tr>
-                            <td colspan="4" class="p-8 text-center text-zinc-500">
-                                <i class="fa-solid fa-spinner animate-spin mr-2"></i> 正在加载...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <!-- Tab Contents -->
 
-            <!-- Empty State for Pending -->
-            <div id="pending-empty" class="hidden py-12 text-center">
-                <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
-                    <i class="fa-solid fa-check-double text-xl text-green-500"></i>
+        <!-- PENDING TAB -->
+        <div id="tab-content-pending" class="block">
+            <div class="glass-card rounded-2xl overflow-hidden shadow-2xl">
+                <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                    <h2 class="font-semibold text-base text-white flex items-center gap-2">
+                        <i class="fa-solid fa-clock text-yellow-500 text-sm"></i>
+                        待处理邀请列表
+                    </h2>
+                    <button onclick="loadPendingInvites()"
+                        class="text-sm font-medium text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-yellow-500/10">
+                        <i class="fa-solid fa-refresh text-xs"></i> 刷新
+                    </button>
                 </div>
-                <h3 class="text-white font-medium mb-1">没有待处理邀请</h3>
-                <p class="text-sm text-zinc-500">所有邀请已被处理完毕</p>
+
+                <div class="overflow-x-auto min-h-[400px]">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr
+                                class="text-xs uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-white/[0.01]">
+                                <th class="p-4 font-semibold">邮箱地址</th>
+                                <th class="p-4 font-semibold">角色</th>
+                                <th class="p-4 font-semibold">邀请时间</th>
+                                <th class="p-4 font-semibold">ID</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pending-body" class="text-[13px] text-zinc-300">
+                            <tr>
+                                <td colspan="4" class="p-8 text-center text-zinc-500">
+                                    <i class="fa-solid fa-spinner animate-spin mr-2"></i> 正在加载...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <!-- Empty State for Pending -->
+                    <div id="pending-empty" class="hidden py-24 text-center">
+                        <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
+                            <i class="fa-solid fa-check-double text-xl text-green-500"></i>
+                        </div>
+                        <h3 class="text-white font-medium mb-1">没有待处理邀请</h3>
+                        <p class="text-sm text-zinc-500">所有邀请已被处理完毕</p>
+                    </div>
+                </div>
+
+                <!-- Pending Pagination -->
+                <div id="pending-pagination"
+                    class="border-t border-white/5 p-4 flex items-center justify-between bg-white/[0.02] hidden">
+                    <div class="text-xs text-zinc-500">
+                        显示 <span id="pending-start">0</span> - <span id="pending-end">0</span> 条，共 <span
+                            id="pending-total-items">0</span> 条
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="changePage('pending', -1)" id="pending-prev"
+                            class="px-3 py-1 text-xs font-medium rounded border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
+                            上一页
+                        </button>
+                        <span id="pending-page-info"
+                            class="px-2 py-1 text-xs text-zinc-400 font-mono flex items-center">1/1</span>
+                        <button onclick="changePage('pending', 1)" id="pending-next"
+                            class="px-3 py-1 text-xs font-medium rounded border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
+                            下一页
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Team Members Section -->
-        <div class="glass-card rounded-2xl overflow-hidden shadow-2xl mb-8">
-            <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-                <h2 class="font-semibold text-base text-white flex items-center gap-2">
-                    <i class="fa-solid fa-users text-blue-500 text-sm"></i>
-                    空间成员
-                    <span id="members-count" class="ml-2 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium border border-blue-500/10">-</span>
-                </h2>
-                <button onclick="loadMembers()"
-                    class="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-500/10">
-                    <i class="fa-solid fa-refresh text-xs"></i> 刷新
-                </button>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="text-xs uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-white/[0.01]">
-                            <th class="p-4 font-semibold">用户名</th>
-                            <th class="p-4 font-semibold">邮箱地址</th>
-                            <th class="p-4 font-semibold">角色</th>
-                            <th class="p-4 font-semibold">加入时间</th>
-                            <th class="p-4 font-semibold">状态</th>
-                        </tr>
-                    </thead>
-                    <tbody id="members-body" class="text-[13px] text-zinc-300">
-                        <tr>
-                            <td colspan="5" class="p-8 text-center text-zinc-500">
-                                <i class="fa-solid fa-spinner animate-spin mr-2"></i> 正在加载...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Empty State for Members -->
-            <div id="members-empty" class="hidden py-12 text-center">
-                <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
-                    <i class="fa-solid fa-user-slash text-xl text-zinc-500"></i>
+        <!-- MEMBERS TAB -->
+        <div id="tab-content-members" class="hidden">
+            <div class="glass-card rounded-2xl overflow-hidden shadow-2xl">
+                <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                    <h2 class="font-semibold text-base text-white flex items-center gap-2">
+                        <i class="fa-solid fa-users text-blue-500 text-sm"></i>
+                        空间成员列表
+                    </h2>
+                    <button onclick="loadMembers()"
+                        class="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-500/10">
+                        <i class="fa-solid fa-refresh text-xs"></i> 刷新
+                    </button>
                 </div>
-                <h3 class="text-white font-medium mb-1">暂无成员</h3>
-                <p class="text-sm text-zinc-500">空间内还没有成员</p>
+
+                <div class="overflow-x-auto min-h-[400px]">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr
+                                class="text-xs uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-white/[0.01]">
+                                <th class="p-4 font-semibold">用户名</th>
+                                <th class="p-4 font-semibold">邮箱地址</th>
+                                <th class="p-4 font-semibold">角色</th>
+                                <th class="p-4 font-semibold">加入时间</th>
+                                <th class="p-4 font-semibold">状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="members-body" class="text-[13px] text-zinc-300">
+                            <tr>
+                                <td colspan="5" class="p-8 text-center text-zinc-500">
+                                    <i class="fa-solid fa-spinner animate-spin mr-2"></i> 正在加载...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <!-- Empty State for Members -->
+                    <div id="members-empty" class="hidden py-24 text-center">
+                        <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
+                            <i class="fa-solid fa-user-slash text-xl text-zinc-500"></i>
+                        </div>
+                        <h3 class="text-white font-medium mb-1">暂无成员</h3>
+                        <p class="text-sm text-zinc-500">空间内还没有成员</p>
+                    </div>
+                </div>
+
+                <!-- Members Pagination -->
+                <div id="members-pagination"
+                    class="border-t border-white/5 p-4 flex items-center justify-between bg-white/[0.02] hidden">
+                    <div class="text-xs text-zinc-500">
+                        显示 <span id="members-start">0</span> - <span id="members-end">0</span> 条，共 <span
+                            id="members-total-items">0</span> 条
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="changePage('members', -1)" id="members-prev"
+                            class="px-3 py-1 text-xs font-medium rounded border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
+                            上一页
+                        </button>
+                        <span id="members-page-info"
+                            class="px-2 py-1 text-xs text-zinc-400 font-mono flex items-center">1/1</span>
+                        <button onclick="changePage('members', 1)" id="members-next"
+                            class="px-3 py-1 text-xs font-medium rounded border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
+                            下一页
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Records Table -->
-        <div class="glass-card rounded-2xl overflow-hidden shadow-2xl">
-            <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-                <h2 class="font-semibold text-base text-white flex items-center gap-2">
-                    <i class="fa-solid fa-list text-zinc-500 text-sm"></i>
-                    近期活动记录
-                </h2>
-                <button onclick="loadRecords()"
-                    class="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-500/10">
-                    <i class="fa-solid fa-refresh text-xs"></i> 刷新数据
-                </button>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr
-                            class="text-xs uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-white/[0.01]">
-                            <th class="p-5 font-semibold w-24">ID</th>
-                            <th class="p-5 font-semibold">用户</th>
-                            <th class="p-5 font-semibold">信任等级</th>
-                            <th class="p-5 font-semibold">分配邮箱</th>
-                            <th class="p-5 font-semibold">密码</th>
-                            <th class="p-5 font-semibold">状态</th>
-                            <th class="p-5 font-semibold">时间</th>
-                            <th class="p-5 font-semibold">IP 地址</th>
-                        </tr>
-                    </thead>
-                    <tbody id="records-body" class="text-[13px] text-zinc-300">
-                        <tr>
-                            <td colspan="8" class="p-10 text-center text-zinc-500">
-                                <i class="fa-solid fa-spinner animate-spin mr-2"></i> 正在加载数据...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Empty State -->
-            <div id="empty-state" class="hidden py-16 text-center">
-                <div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                    <i class="fa-solid fa-inbox text-2xl text-zinc-600"></i>
+        <!-- RECORDS TAB -->
+        <div id="tab-content-records" class="hidden">
+            <div class="glass-card rounded-2xl overflow-hidden shadow-2xl">
+                <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                    <h2 class="font-semibold text-base text-white flex items-center gap-2">
+                        <i class="fa-solid fa-list text-zinc-500 text-sm"></i>
+                        近期活动记录
+                    </h2>
+                    <button onclick="loadRecords()"
+                        class="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-500/10">
+                        <i class="fa-solid fa-refresh text-xs"></i> 刷新数据
+                    </button>
                 </div>
-                <h3 class="text-white font-medium mb-1 text-lg">暂无记录</h3>
-                <p class="text-sm text-zinc-500">所有新的邀请记录将显示在这里</p>
+
+                <div class="overflow-x-auto min-h-[400px]">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr
+                                class="text-xs uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-white/[0.01]">
+                                <th class="p-5 font-semibold w-24">ID</th>
+                                <th class="p-5 font-semibold">用户</th>
+                                <th class="p-5 font-semibold">信任等级</th>
+                                <th class="p-5 font-semibold">分配邮箱</th>
+                                <th class="p-5 font-semibold">密码</th>
+                                <th class="p-5 font-semibold">状态</th>
+                                <th class="p-5 font-semibold">时间</th>
+                                <th class="p-5 font-semibold">IP 地址</th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-body" class="text-[13px] text-zinc-300">
+                            <tr>
+                                <td colspan="8" class="p-10 text-center text-zinc-500">
+                                    <i class="fa-solid fa-spinner animate-spin mr-2"></i> 正在加载数据...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <!-- Empty State -->
+                    <div id="records-empty" class="hidden py-24 text-center">
+                        <div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-inbox text-2xl text-zinc-600"></i>
+                        </div>
+                        <h3 class="text-white font-medium mb-1 text-lg">暂无记录</h3>
+                        <p class="text-sm text-zinc-500">所有新的邀请记录将显示在这里</p>
+                    </div>
+                </div>
+
+                <!-- Records Pagination -->
+                <div id="records-pagination"
+                    class="border-t border-white/5 p-4 flex items-center justify-between bg-white/[0.02] hidden">
+                    <div class="text-xs text-zinc-500">
+                        显示 <span id="records-start">0</span> - <span id="records-end">0</span> 条，共 <span
+                            id="records-total-items">0</span> 条
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="changePage('records', -1)" id="records-prev"
+                            class="px-3 py-1 text-xs font-medium rounded border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
+                            上一页
+                        </button>
+                        <span id="records-page-info"
+                            class="px-2 py-1 text-xs text-zinc-400 font-mono flex items-center">1/1</span>
+                        <button onclick="changePage('records', 1)" id="records-next"
+                            class="px-3 py-1 text-xs font-medium rounded border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
+                            下一页
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // Data Store
+        const appStore = {
+            pending: { items: [], page: 1, pageSize: 12 },
+            members: { items: [], page: 1, pageSize: 12 },
+            records: { items: [], page: 1, pageSize: 12 }
+        };
+
+        function switchTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-btn-${tabName}`).classList.add('active');
+
+            // Update content
+            ['pending', 'members', 'records'].forEach(name => {
+                const el = document.getElementById(`tab-content-${name}`);
+                if (name === tabName) {
+                    el.classList.remove('hidden');
+                    el.classList.add('block');
+                } else {
+                    el.classList.add('hidden');
+                    el.classList.remove('block');
+                }
+            });
+        }
+
         function formatDateTime(isoString) {
             if (!isoString) return '-';
             const date = new Date(isoString);
@@ -299,6 +459,129 @@
                 second: '2-digit',
                 hour12: false
             });
+        }
+
+        // Generic render function for pagination
+        function renderTable(type, renderRowCallback) {
+            const store = appStore[type];
+            const tbody = document.getElementById(`${type}-body`);
+            const emptyState = document.getElementById(`${type}-empty`);
+            const pagination = document.getElementById(`${type}-pagination`);
+
+            if (!store.items || store.items.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                pagination.classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            pagination.classList.remove('hidden');
+
+            // Calculate pagination
+            const total = store.items.length;
+            const totalPages = Math.ceil(total / store.pageSize);
+            // Ensure page is valid
+            if (store.page > totalPages) store.page = totalPages;
+            if (store.page < 1) store.page = 1;
+
+            const startIdx = (store.page - 1) * store.pageSize;
+            const endIdx = Math.min(startIdx + store.pageSize, total);
+            const pageItems = store.items.slice(startIdx, endIdx);
+
+            // Render Rows
+            tbody.innerHTML = pageItems.map(renderRowCallback).join('');
+
+            // Update Pagination UI
+            document.getElementById(`${type}-prev`).disabled = store.page <= 1;
+            document.getElementById(`${type}-next`).disabled = store.page >= totalPages;
+            document.getElementById(`${type}-page-info`).textContent = `${store.page} / ${totalPages}`;
+            document.getElementById(`${type}-start`).textContent = startIdx + 1;
+            document.getElementById(`${type}-end`).textContent = endIdx;
+            document.getElementById(`${type}-total-items`).textContent = total;
+        }
+
+        function changePage(type, delta) {
+            const store = appStore[type];
+            store.page += delta;
+
+            if (type === 'pending') {
+                renderTable('pending', renderPendingRow);
+            } else if (type === 'members') {
+                renderTable('members', renderMembersRow);
+            } else if (type === 'records') {
+                renderTable('records', renderRecordsRow);
+            }
+        }
+
+        // Render Callbacks
+        function renderPendingRow(item) {
+            return `
+                <tr class="table-row border-b border-white/5 last:border-0">
+                    <td class="p-4">
+                        <div class="font-mono text-sm text-yellow-400 select-all">${item.email_address}</div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[11px] border border-blue-500/10">${item.role}</span>
+                    </td>
+                    <td class="p-4 text-[12px] text-zinc-400">${formatDateTime(item.created_time)}</td>
+                    <td class="p-4 text-[10px] text-zinc-600 font-mono">${item.id.slice(0, 8)}...</td>
+                </tr>
+            `;
+        }
+
+        function renderMembersRow(item) {
+            const roleClass = item.role === 'account-owner'
+                ? 'bg-purple-500/10 text-purple-400 border-purple-500/10'
+                : 'bg-blue-500/10 text-blue-400 border-blue-500/10';
+            const roleText = item.role === 'account-owner' ? '管理员' : '成员';
+            const statusClass = item.deactivated_time
+                ? 'bg-red-500/10 text-red-400 border-red-500/10'
+                : 'bg-green-500/10 text-green-400 border-green-500/10';
+            const statusText = item.deactivated_time ? '已停用' : '活跃';
+
+            return `
+                <tr class="table-row border-b border-white/5 last:border-0">
+                    <td class="p-4">
+                        <div class="text-white font-medium">${item.name || '-'}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-mono text-sm text-zinc-300 select-all">${item.email}</div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-0.5 rounded text-[11px] border ${roleClass}">${roleText}</span>
+                    </td>
+                    <td class="p-4 text-[12px] text-zinc-400">${formatDateTime(item.created_time)}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-0.5 rounded text-[11px] border ${statusClass}">${statusText}</span>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function renderRecordsRow(r) {
+            return `
+                <tr class="table-row border-b border-white/5 last:border-0 group">
+                    <td class="p-4 text-zinc-500 font-mono text-xs">#${r.id}</td>
+                    <td class="p-4">
+                        <div class="text-white font-medium">${r.linuxdo_name || r.linuxdo_username || '-'}</div>
+                        <div class="text-[11px] text-zinc-500">@${r.linuxdo_username}</div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-0.5 rounded bg-white/5 text-zinc-400 text-[11px] border border-white/5">TL${r.trust_level}</span>
+                    </td>
+                    <td class="p-4 font-mono text-[11px] text-zinc-400 select-all">${r.email}</td>
+                    <td class="p-4 font-mono text-[11px] text-zinc-500">${r.password}</td>
+                    <td class="p-4">
+                        ${r.success
+                    ? '<span class="px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 text-[11px] border border-green-500/10 font-medium">Success</span>'
+                    : '<span class="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-[11px] border border-red-500/10 font-medium">Failed</span>'
+                }
+                    </td>
+                    <td class="p-4 text-[11px] text-zinc-500">${r.created_at}</td>
+                    <td class="p-4 text-[11px] text-zinc-600 font-mono">${r.ip}</td>
+                </tr>
+            `;
         }
 
         function loadStats() {
@@ -329,140 +612,50 @@
             fetch('/api/admin/pending-invites')
                 .then(r => r.json())
                 .then(data => {
-                    const tbody = document.getElementById('pending-body');
-                    const emptyState = document.getElementById('pending-empty');
-                    const countBadge = document.getElementById('pending-count');
+                    if (data.success) {
+                        appStore.pending.items = data.items || [];
+                        renderTable('pending', renderPendingRow);
 
-                    if (!data.success || !data.items || data.items.length === 0) {
-                        tbody.innerHTML = '';
-                        emptyState.classList.remove('hidden');
-                        countBadge.textContent = '0';
-                        return;
+                        // Update badge
+                        const count = data.items ? data.items.length : 0;
+                        const badge = document.getElementById('tab-count-pending');
+                        badge.textContent = count;
+                        if (count > 0) badge.classList.remove('hidden');
+                        else badge.classList.add('hidden');
                     }
-
-                    emptyState.classList.add('hidden');
-                    countBadge.textContent = data.total;
-
-                    tbody.innerHTML = data.items.map(item => `
-                        <tr class="table-row border-b border-white/5 last:border-0">
-                            <td class="p-4">
-                                <div class="font-mono text-sm text-yellow-400 select-all">${item.email_address}</div>
-                            </td>
-                            <td class="p-4">
-                                <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[11px] border border-blue-500/10">${item.role}</span>
-                            </td>
-                            <td class="p-4 text-[12px] text-zinc-400">${formatDateTime(item.created_time)}</td>
-                            <td class="p-4 text-[10px] text-zinc-600 font-mono">${item.id.slice(0, 8)}...</td>
-                        </tr>
-                    `).join('');
                 })
-                .catch(() => {
-                    document.getElementById('pending-body').innerHTML = `
-                        <tr>
-                            <td colspan="4" class="p-8 text-center text-red-400">
-                                <i class="fa-solid fa-exclamation-circle mr-2"></i> 加载失败
-                            </td>
-                        </tr>
-                    `;
-                });
+                .catch(err => console.error(err));
         }
 
         function loadMembers() {
             fetch('/api/admin/members')
                 .then(r => r.json())
                 .then(data => {
-                    const tbody = document.getElementById('members-body');
-                    const emptyState = document.getElementById('members-empty');
-                    const countBadge = document.getElementById('members-count');
+                    if (data.success) {
+                        appStore.members.items = data.items || [];
+                        renderTable('members', renderMembersRow);
 
-                    if (!data.success || !data.items || data.items.length === 0) {
-                        tbody.innerHTML = '';
-                        emptyState.classList.remove('hidden');
-                        countBadge.textContent = '0';
-                        return;
+                        // Update badge
+                        const count = data.items ? data.items.length : 0;
+                        const badge = document.getElementById('tab-count-members');
+                        badge.textContent = count;
+                        if (count > 0) badge.classList.remove('hidden');
+                        else badge.classList.add('hidden');
                     }
-
-                    emptyState.classList.add('hidden');
-                    countBadge.textContent = data.total;
-
-                    tbody.innerHTML = data.items.map(item => {
-                        const roleClass = item.role === 'account-owner'
-                            ? 'bg-purple-500/10 text-purple-400 border-purple-500/10'
-                            : 'bg-blue-500/10 text-blue-400 border-blue-500/10';
-                        const roleText = item.role === 'account-owner' ? '管理员' : '成员';
-                        const statusClass = item.deactivated_time
-                            ? 'bg-red-500/10 text-red-400 border-red-500/10'
-                            : 'bg-green-500/10 text-green-400 border-green-500/10';
-                        const statusText = item.deactivated_time ? '已停用' : '活跃';
-
-                        return `
-                            <tr class="table-row border-b border-white/5 last:border-0">
-                                <td class="p-4">
-                                    <div class="text-white font-medium">${item.name || '-'}</div>
-                                </td>
-                                <td class="p-4">
-                                    <div class="font-mono text-sm text-zinc-300 select-all">${item.email}</div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-2 py-0.5 rounded text-[11px] border ${roleClass}">${roleText}</span>
-                                </td>
-                                <td class="p-4 text-[12px] text-zinc-400">${formatDateTime(item.created_time)}</td>
-                                <td class="p-4">
-                                    <span class="px-2 py-0.5 rounded text-[11px] border ${statusClass}">${statusText}</span>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('');
                 })
-                .catch(() => {
-                    document.getElementById('members-body').innerHTML = `
-                        <tr>
-                            <td colspan="5" class="p-8 text-center text-red-400">
-                                <i class="fa-solid fa-exclamation-circle mr-2"></i> 加载失败
-                            </td>
-                        </tr>
-                    `;
-                });
+                .catch(err => console.error(err));
         }
 
         function loadRecords() {
             fetch('/api/admin/records')
                 .then(r => r.json())
                 .then(data => {
-                    const tbody = document.getElementById('records-body');
-                    const emptyState = document.getElementById('empty-state');
-
-                    if (!data.success || !data.records || data.records.length === 0) {
-                        tbody.innerHTML = '';
-                        emptyState.classList.remove('hidden');
-                        return;
+                    if (data.success) {
+                        appStore.records.items = data.records || [];
+                        renderTable('records', renderRecordsRow);
                     }
-
-                    emptyState.classList.add('hidden');
-                    tbody.innerHTML = data.records.map(r => `
-                        <tr class="table-row border-b border-white/5 last:border-0 group">
-                            <td class="p-4 text-zinc-500 font-mono text-xs">#${r.id}</td>
-                            <td class="p-4">
-                                <div class="text-white font-medium">${r.linuxdo_name || r.linuxdo_username || '-'}</div>
-                                <div class="text-[11px] text-zinc-500">@${r.linuxdo_username}</div>
-                            </td>
-                            <td class="p-4">
-                                <span class="px-2 py-0.5 rounded bg-white/5 text-zinc-400 text-[11px] border border-white/5">TL${r.trust_level}</span>
-                            </td>
-                            <td class="p-4 font-mono text-[11px] text-zinc-400 select-all">${r.email}</td>
-                            <td class="p-4 font-mono text-[11px] text-zinc-500">${r.password}</td>
-                            <td class="p-4">
-                                ${r.success
-                            ? '<span class="px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 text-[11px] border border-green-500/10 font-medium">Success</span>'
-                            : '<span class="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-[11px] border border-red-500/10 font-medium">Failed</span>'
-                        }
-                            </td>
-                            <td class="p-4 text-[11px] text-zinc-500">${r.created_at}</td>
-                            <td class="p-4 text-[11px] text-zinc-600 font-mono">${r.ip}</td>
-                        </tr>
-                    `).join('');
                 })
-                .catch(() => { });
+                .catch(err => console.error(err));
         }
 
         // 初始化加载
@@ -474,6 +667,9 @@
         // 定时刷新
         setInterval(loadStats, 30000);
         setInterval(loadPendingInvites, 60000);
+
+        // Default Tab
+        switchTab('pending');
     </script>
 </body>
 
