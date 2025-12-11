@@ -226,9 +226,17 @@ def create_email_user(email, password, role_name):
     payload = {
         "list": [{"email": email, "password": password, "roleName": role_name}]
     }
-    response = requests.post(url, headers=headers, json=payload, timeout=10)
-    data = response.json()
-    return data.get("code") == 200, data.get("message", "Unknown error")
+    try:
+        app.logger.info(f"[邮箱创建] 请求: email={email}, role={role_name}, url={url}")
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        data = response.json()
+        success = data.get("code") == 200
+        msg = data.get("message", "Unknown error")
+        app.logger.info(f"[邮箱创建] 响应: success={success}, code={data.get('code')}, message={msg}")
+        return success, msg
+    except Exception as e:
+        app.logger.error(f"[邮箱创建] 异常: {str(e)}")
+        return False, str(e)
 
 
 def send_chatgpt_invite(email):
@@ -240,8 +248,22 @@ def send_chatgpt_invite(email):
         "role": "standard-user",
         "resend_emails": True
     }
-    response = requests.post(url, headers=headers, json=payload, timeout=10)
-    return response.status_code == 200, response.text
+
+    # 日志：检查关键配置
+    app.logger.info(f"[ChatGPT邀请] 开始发送: email={email}")
+    app.logger.info(f"[ChatGPT邀请] ACCOUNT_ID={ACCOUNT_ID}")
+    app.logger.info(f"[ChatGPT邀请] Token前20字符: {AUTHORIZATION_TOKEN[:20] if AUTHORIZATION_TOKEN else 'None'}...")
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        app.logger.info(f"[ChatGPT邀请] 响应: status={response.status_code}, body={response.text[:500]}")
+        if response.status_code == 200:
+            return True, "success"
+        else:
+            return False, f"HTTP {response.status_code}: {response.text[:200]}"
+    except Exception as e:
+        app.logger.error(f"[ChatGPT邀请] 异常: {str(e)}")
+        return False, str(e)
 
 
 def get_verification_code(email, max_retries=10, interval=3):
@@ -253,22 +275,34 @@ def get_verification_code(email, max_retries=10, interval=3):
     }
     payload = {"toEmail": email}
 
-    for i in range(max_retries):
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
-        data = response.json()
+    app.logger.info(f"[验证码] 开始获取: email={email}, max_retries={max_retries}")
 
-        if data.get("code") == 200:
-            emails = data.get("data", [])
-            if emails:
-                latest_email = emails[0]
-                subject = latest_email.get("subject", "")
-                match = re.search(r"代码为\s*(\d{6})", subject)
-                if match:
-                    return match.group(1), None
+    for i in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=10)
+            data = response.json()
+
+            if data.get("code") == 200:
+                emails = data.get("data", [])
+                app.logger.info(f"[验证码] 第{i+1}次尝试: 找到 {len(emails)} 封邮件")
+                if emails:
+                    latest_email = emails[0]
+                    subject = latest_email.get("subject", "")
+                    app.logger.info(f"[验证码] 最新邮件主题: {subject[:100]}")
+                    match = re.search(r"代码为\s*(\d{6})", subject)
+                    if match:
+                        code = match.group(1)
+                        app.logger.info(f"[验证码] 成功获取: {code}")
+                        return code, None
+            else:
+                app.logger.warning(f"[验证码] 第{i+1}次尝试失败: {data.get('message')}")
+        except Exception as e:
+            app.logger.error(f"[验证码] 第{i+1}次尝试异常: {str(e)}")
 
         if i < max_retries - 1:
             time.sleep(interval)
 
+    app.logger.warning(f"[验证码] 获取失败: 已尝试 {max_retries} 次")
     return None, "未能获取验证码"
 
 
