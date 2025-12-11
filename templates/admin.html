@@ -225,9 +225,9 @@
                         <i class="fa-solid fa-clock text-yellow-500 text-sm"></i>
                         待处理邀请列表
                     </h2>
-                    <button onclick="loadPendingInvites()"
+                    <button onclick="loadPendingInvites()" id="refresh-pending-btn"
                         class="text-sm font-medium text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-yellow-500/10">
-                        <i class="fa-solid fa-refresh text-xs"></i> 刷新
+                        <i id="refresh-pending-icon" class="fa-solid fa-refresh text-xs transition-transform"></i> 刷新
                     </button>
                 </div>
 
@@ -291,9 +291,9 @@
                         <i class="fa-solid fa-users text-blue-500 text-sm"></i>
                         空间成员列表
                     </h2>
-                    <button onclick="loadMembers()"
+                    <button onclick="loadMembers()" id="refresh-members-btn"
                         class="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-500/10">
-                        <i class="fa-solid fa-refresh text-xs"></i> 刷新
+                        <i id="refresh-members-icon" class="fa-solid fa-refresh text-xs transition-transform"></i> 刷新
                     </button>
                 </div>
 
@@ -358,9 +358,9 @@
                         <i class="fa-solid fa-list text-zinc-500 text-sm"></i>
                         近期活动记录
                     </h2>
-                    <button onclick="loadRecords()"
+                    <button onclick="loadRecords()" id="refresh-records-btn"
                         class="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-500/10">
-                        <i class="fa-solid fa-refresh text-xs"></i> 刷新数据
+                        <i id="refresh-records-icon" class="fa-solid fa-refresh text-xs transition-transform"></i> 刷新数据
                     </button>
                 </div>
 
@@ -600,7 +600,23 @@
                 .catch(() => { });
         }
 
+        // 刷新动画辅助函数
+        function startRefreshAnimation(iconId) {
+            const icon = document.getElementById(iconId);
+            if (icon) {
+                icon.classList.add('animate-spin');
+            }
+        }
+
+        function stopRefreshAnimation(iconId) {
+            const icon = document.getElementById(iconId);
+            if (icon) {
+                icon.classList.remove('animate-spin');
+            }
+        }
+
         function loadPendingInvites() {
+            startRefreshAnimation('refresh-pending-icon');
             fetch('/api/admin/pending-invites')
                 .then(r => r.json())
                 .then(data => {
@@ -616,10 +632,12 @@
                         else badge.classList.add('hidden');
                     }
                 })
-                .catch(err => console.error(err));
+                .catch(err => console.error(err))
+                .finally(() => stopRefreshAnimation('refresh-pending-icon'));
         }
 
         function loadMembers() {
+            startRefreshAnimation('refresh-members-icon');
             fetch('/api/admin/members')
                 .then(r => r.json())
                 .then(data => {
@@ -635,10 +653,12 @@
                         else badge.classList.add('hidden');
                     }
                 })
-                .catch(err => console.error(err));
+                .catch(err => console.error(err))
+                .finally(() => stopRefreshAnimation('refresh-members-icon'));
         }
 
         function loadRecords() {
+            startRefreshAnimation('refresh-records-icon');
             fetch('/api/admin/records')
                 .then(r => r.json())
                 .then(data => {
@@ -647,7 +667,8 @@
                         renderTable('records', renderRecordsRow);
                     }
                 })
-                .catch(err => console.error(err));
+                .catch(err => console.error(err))
+                .finally(() => stopRefreshAnimation('refresh-records-icon'));
         }
 
         // 初始化加载
