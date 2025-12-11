@@ -417,6 +417,79 @@ def check_invite_pending(email):
     return False
 
 
+def check_user_already_invited(email):
+    """检查用户是否已经被邀请过（在待处理邀请列表中）
+
+    优先使用缓存，避免登录时阻塞太久
+    """
+    # 先检查缓存
+    cached = get_cached_pending_invites()
+    if cached:
+        items = cached.get("items", [])
+        for item in items:
+            if item.get("email_address", "").lower() == email.lower():
+                return True
+
+    # 缓存没有，实时查询一次
+    items, _ = fetch_pending_invites_from_api(100)
+    for item in items:
+        if item.get("email_address", "").lower() == email.lower():
+            return True
+    return False
+
+
+def fetch_space_members_from_api(limit=100):
+    """从 API 获取空间成员列表"""
+    url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/users?offset=0&limit={limit}&query="
+    headers = build_base_headers()
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("items", []), data.get("total", 0)
+        else:
+            log_error("Members", "获取空间成员失败", status=response.status_code)
+            return [], 0
+    except Exception as e:
+        log_error("Members", "获取空间成员异常", str(e))
+        return [], 0
+
+
+def check_user_in_space(email):
+    """检查用户是否已经在空间中（已接受邀请成为成员）
+
+    Returns:
+        bool: True 表示已在空间中
+    """
+    items, _ = fetch_space_members_from_api(100)
+    for item in items:
+        member_email = item.get("email", "").lower()
+        if member_email == email.lower():
+            return True
+    return False
+
+
+def get_user_invite_status(email):
+    """获取用户的邀请状态
+
+    Returns:
+        str: 'in_space' - 已在空间中
+             'pending' - 有待处理邀请
+             'new' - 新用户，需要邀请
+    """
+    # 1. 先检查是否已在空间中
+    if check_user_in_space(email):
+        return 'in_space'
+
+    # 2. 检查是否有待处理邀请
+    if check_user_already_invited(email):
+        return 'pending'
+
+    # 3. 新用户
+    return 'new'
+
+
 def background_refresh_pending_invites():
     """后台刷新待处理邀请（由定时任务调用）"""
     try:
@@ -817,8 +890,36 @@ def callback():
         log_info("Auth", "用户登录", username=user_info.get("username"), trust_level=trust_level)
         session.permanent = True  # 启用持久化 Session
 
-        # 标记需要执行邀请（在 invite 页面异步执行）
-        session["need_invite"] = True
+        # 检查用户邀请状态（三种状态）
+        user_email = generate_email_for_user(user["username"])
+        invite_status = get_user_invite_status(user_email)
+
+        # 保存用户邮箱信息
+        session["user_email"] = user_email
+        session["user_password"] = generate_password()
+
+        if invite_status == 'in_space':
+            # 用户已在空间中，不需要邀请也不需要验证码
+            log_info("Auth", "用户已在空间中", username=user["username"], email=user_email)
+            session["invite_status"] = "in_space"
+            session["need_invite"] = False
+            session["pending_invite"] = None
+        elif invite_status == 'pending':
+            # 用户有待处理邀请，可以获取验证码
+            log_info("Auth", "用户有待处理邀请", username=user["username"], email=user_email)
+            session["invite_status"] = "pending"
+            session["need_invite"] = False
+            session["pending_invite"] = {
+                "email": user_email,
+                "password": generate_password(),
+                "created_at": time.time()
+            }
+        else:
+            # 新用户，需要发送邀请
+            log_info("Auth", "新用户，需要邀请", username=user["username"], email=user_email)
+            session["invite_status"] = "new"
+            session["need_invite"] = True
+            session["pending_invite"] = None
 
         return redirect(url_for("invite_page"))
 
@@ -843,7 +944,23 @@ def invite_page():
     # 检查是否需要执行邀请（新登录用户）
     need_invite = session.pop("need_invite", False)
     invite_result = session.get("invite_result", {})
-    return render_template("invite.html", user=user, invite_result=invite_result, need_invite=need_invite)
+    # 获取待处理邀请信息（用于已邀请用户直接获取验证码）
+    pending_invite = session.get("pending_invite") or {}
+    # 获取邀请状态：in_space / pending / new
+    invite_status = session.get("invite_status", "new")
+    # 获取用户邮箱信息
+    user_email = session.get("user_email", "")
+    user_password = session.get("user_password", DEFAULT_PASSWORD)
+    return render_template(
+        "invite.html",
+        user=user,
+        invite_result=invite_result,
+        need_invite=need_invite,
+        pending_invite=pending_invite,
+        invite_status=invite_status,
+        user_email=user_email,
+        user_password=user_password
+    )
 
 
 @app.route("/api/auto-invite", methods=["POST"])

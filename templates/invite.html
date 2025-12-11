@@ -573,6 +573,20 @@
         // 是否需要执行邀请（新登录用户）
         const NEED_INVITE = {{ 'true' if need_invite else 'false' }};
 
+        // 邀请状态：in_space / pending / new
+        const INVITE_STATUS = '{{ invite_status }}';
+
+        // 是否已有待处理邀请（已邀请用户重新登录）
+        const PENDING_INVITE = {
+            exists: {{ 'true' if pending_invite.email else 'false' }},
+            email: '{{ pending_invite.email or "" }}',
+            password: '{{ pending_invite.password or "kfcvivo50" }}'
+        };
+
+        // 用户邮箱信息（从后端获取）
+        const USER_EMAIL = '{{ user_email or "" }}';
+        const USER_PASSWORD = '{{ user_password or "kfcvivo50" }}';
+
         // Use server data directly (Jinja will populate these values)
         const USER = {
             username: SERVER_DATA.username,
@@ -581,9 +595,9 @@
             avatarUrl: SERVER_DATA.avatarUrl
         };
 
-        // 使用邀请结果的邮箱，如果没有则使用默认生成的
-        const email = INVITE_RESULT.email || (USER.username + 'kfc@kyx03.de');
-        const password = INVITE_RESULT.password || 'kfcvivo50';
+        // 使用邮箱：优先后端传递的，其次是待处理邀请，再次是邀请结果，最后是默认生成的
+        const email = USER_EMAIL || PENDING_INVITE.email || INVITE_RESULT.email || (USER.username + 'kfc@kyx03.de');
+        const password = USER_PASSWORD || PENDING_INVITE.password || INVITE_RESULT.password || 'kfcvivo50';
 
         // --- POPULATE UI ---
         document.getElementById('user-avatar').src = USER.avatarUrl;
@@ -859,8 +873,30 @@
             const codeDisplay = document.getElementById('code-display');
             const codeStatus = document.getElementById('code-status');
             const btn = document.getElementById('get-code-btn');
+            const copyCodeBtn = document.getElementById('copy-code-btn');
 
-            // 新登录用户，自动执行邀请（但不自动获取验证码）
+            // 状态1: 用户已在空间中
+            if (INVITE_STATUS === 'in_space') {
+                codeDisplay.textContent = '已入空间';
+                codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-green-400 code-glow transition-all duration-300 relative z-10 py-1';
+                codeStatus.textContent = '您已成功加入 ChatGPT Team 空间';
+                btn.innerHTML = '<i class="fa-solid fa-check-circle text-xl"></i><span>已完成</span>';
+                btn.disabled = true;
+                btn.classList.remove('action-btn');
+                btn.classList.add('bg-green-500/20', 'border', 'border-green-500/30', 'cursor-default');
+                copyCodeBtn.classList.add('hidden');
+                showMessage('您已是空间成员，无需再次邀请', 'success');
+                return;
+            }
+
+            // 状态2: 用户有待处理邀请（可以获取验证码）
+            if (INVITE_STATUS === 'pending' || (PENDING_INVITE.exists && !NEED_INVITE)) {
+                codeStatus.textContent = '您已有待处理的邀请，点击下方按钮获取验证码';
+                showMessage('检测到您已有待处理的邀请', 'success');
+                return;
+            }
+
+            // 状态3: 新用户，需要发送邀请
             if (NEED_INVITE) {
                 codeStatus.textContent = '正在发送邀请...';
                 btn.disabled = true;
@@ -905,7 +941,7 @@
                 return;
             }
 
-            // 非新登录用户，显示默认状态
+            // 默认状态
             codeStatus.textContent = '点击下方按钮获取验证码';
         }
 
