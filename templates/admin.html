@@ -156,39 +156,39 @@
         <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
             <div class="stat-card p-6 rounded-2xl group">
                 <div class="flex items-center justify-between mb-3">
-                    <div class="text-[13px] font-semibold text-zinc-500 tracking-wider">总邀请数</div>
+                    <div class="text-sm font-semibold text-zinc-500 tracking-wider">已上车</div>
                     <i
-                        class="fa-solid fa-paper-plane text-zinc-600 text-lg group-hover:text-blue-500 transition-colors"></i>
+                        class="fa-solid fa-user-check text-zinc-600 text-lg group-hover:text-blue-500 transition-colors"></i>
                 </div>
-                <div class="text-4xl font-bold text-white group-hover:text-blue-400 transition-colors" id="stat-total">-
+                <div class="text-4xl font-bold text-white group-hover:text-blue-400 transition-colors" id="stat-in-use">-
                 </div>
             </div>
             <div class="stat-card p-6 rounded-2xl group">
                 <div class="flex items-center justify-between mb-3">
-                    <div class="text-[13px] font-semibold text-zinc-500 tracking-wider">成功邀请</div>
+                    <div class="text-sm font-semibold text-zinc-500 tracking-wider">待上车</div>
                     <i
-                        class="fa-solid fa-check-circle text-zinc-600 text-lg group-hover:text-green-500 transition-colors"></i>
+                        class="fa-solid fa-clock text-zinc-600 text-lg group-hover:text-amber-500 transition-colors"></i>
+                </div>
+                <div class="text-4xl font-bold text-white group-hover:text-amber-400 transition-colors"
+                    id="stat-pending">-</div>
+            </div>
+            <div class="stat-card p-6 rounded-2xl group">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-sm font-semibold text-zinc-500 tracking-wider">总车位</div>
+                    <i
+                        class="fa-solid fa-users text-zinc-600 text-lg group-hover:text-zinc-400 transition-colors"></i>
+                </div>
+                <div class="text-4xl font-bold text-white group-hover:text-zinc-300 transition-colors" id="stat-total">-
+                </div>
+            </div>
+            <div class="stat-card p-6 rounded-2xl group">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-sm font-semibold text-zinc-500 tracking-wider">剩余名额</div>
+                    <i
+                        class="fa-solid fa-ticket text-zinc-600 text-lg group-hover:text-green-500 transition-colors"></i>
                 </div>
                 <div class="text-4xl font-bold text-white group-hover:text-green-400 transition-colors"
-                    id="stat-success">-</div>
-            </div>
-            <div class="stat-card p-6 rounded-2xl group">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="text-[13px] font-semibold text-zinc-500 tracking-wider">失败邀请</div>
-                    <i
-                        class="fa-solid fa-circle-xmark text-zinc-600 text-lg group-hover:text-red-500 transition-colors"></i>
-                </div>
-                <div class="text-4xl font-bold text-white group-hover:text-red-400 transition-colors" id="stat-fail">-
-                </div>
-            </div>
-            <div class="stat-card p-6 rounded-2xl group">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="text-[13px] font-semibold text-zinc-500 tracking-wider">剩余名额</div>
-                    <i
-                        class="fa-solid fa-chair text-zinc-600 text-lg group-hover:text-purple-500 transition-colors"></i>
-                </div>
-                <div class="text-4xl font-bold text-white group-hover:text-purple-400 transition-colors"
-                    id="stat-seats">-</div>
+                    id="stat-available">-</div>
             </div>
         </div>
 
@@ -562,47 +562,39 @@
         function renderRecordsRow(r) {
             return `
                 <tr class="table-row border-b border-white/5 last:border-0 group">
-                    <td class="p-4 text-zinc-500 font-mono text-xs">#${r.id}</td>
+                    <td class="p-4 text-zinc-500 font-mono text-sm">#${r.id}</td>
                     <td class="p-4">
-                        <div class="text-white font-medium">${r.linuxdo_name || r.linuxdo_username || '-'}</div>
-                        <div class="text-[11px] text-zinc-500">@${r.linuxdo_username}</div>
+                        <div class="text-white font-medium text-sm">${r.linuxdo_name || r.linuxdo_username || '-'}</div>
+                        <div class="text-xs text-zinc-500">@${r.linuxdo_username}</div>
                     </td>
                     <td class="p-4">
-                        <span class="px-2 py-0.5 rounded bg-white/5 text-zinc-400 text-[11px] border border-white/5">TL${r.trust_level}</span>
+                        <span class="px-2.5 py-1 rounded bg-white/5 text-zinc-400 text-xs border border-white/5">TL${r.trust_level}</span>
                     </td>
-                    <td class="p-4 font-mono text-[11px] text-zinc-400 select-all">${r.email}</td>
-                    <td class="p-4 font-mono text-[11px] text-zinc-500">${r.password}</td>
+                    <td class="p-4 font-mono text-sm text-zinc-400 select-all">${r.email}</td>
+                    <td class="p-4 font-mono text-sm text-zinc-500">${r.password}</td>
                     <td class="p-4">
                         ${r.success
-                    ? '<span class="px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 text-[11px] border border-green-500/10 font-medium">Success</span>'
-                    : '<span class="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-[11px] border border-red-500/10 font-medium">Failed</span>'
+                    ? '<span class="px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs border border-green-500/10 font-medium">Success</span>'
+                    : '<span class="px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 text-xs border border-red-500/10 font-medium">Failed</span>'
                 }
                     </td>
-                    <td class="p-4 text-[11px] text-zinc-500">${r.created_at}</td>
-                    <td class="p-4 text-[11px] text-zinc-600 font-mono">${r.ip}</td>
+                    <td class="p-4 text-sm text-zinc-500">${r.created_at}</td>
+                    <td class="p-4 text-sm text-zinc-600 font-mono">${r.ip}</td>
                 </tr>
             `;
         }
 
         function loadStats() {
-            fetch('/api/admin/stats')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('stat-total').textContent = data.stats.total_invites;
-                        document.getElementById('stat-success').textContent = data.stats.success_count;
-                        document.getElementById('stat-fail').textContent = data.stats.fail_count;
-                    }
-                })
-                .catch(() => { });
-
             fetch('/stats')
                 .then(r => r.json())
                 .then(data => {
                     if (data.success && data.data) {
                         const d = data.data;
                         const available = (d.seats_entitled || 0) - (d.seats_in_use || 0) - (d.pending_invites || 0);
-                        document.getElementById('stat-seats').textContent = available;
+                        document.getElementById('stat-in-use').textContent = d.seats_in_use || 0;
+                        document.getElementById('stat-pending').textContent = d.pending_invites || 0;
+                        document.getElementById('stat-total').textContent = d.seats_entitled || 0;
+                        document.getElementById('stat-available').textContent = available;
                     }
                 })
                 .catch(() => { });

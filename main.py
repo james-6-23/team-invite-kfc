@@ -1117,6 +1117,9 @@ def poll_code():
 
 @app.route("/")
 def index():
+    # 如果用户已登录，直接跳转到邀请页面
+    if is_logged_in():
+        return redirect(url_for("invite_page"))
     return render_template("index.html", site_key=CF_TURNSTILE_SITE_KEY)
 
 
