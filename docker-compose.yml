@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    image: ghcr.io/james-6-23/team-invite-kfc:latest
     container_name: team-invite-web
     restart: unless-stopped
     ports:

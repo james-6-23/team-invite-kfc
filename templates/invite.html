@@ -397,25 +397,12 @@
             avatarUrl: '{{ user.avatar_template | replace("{size}", "128") }}'
         };
 
-        // Check if we're in preview mode (Jinja syntax not processed)
-        const isPreview = SERVER_DATA.username.includes('{' + '{');
-
-        {% raw %}
-        // Default mock data for preview
-        const MOCK_DATA = {
-            username: 'shane',
-            name: 'Shane User',
-            trustLevel: '3',
-            avatarUrl: 'https://avatars.githubusercontent.com/u/0?v=4'
-        };
-        {% endraw %}
-
-        // Merge data: use server data if available, otherwise mock
-        const USER = isPreview ? MOCK_DATA : {
-            username: SERVER_DATA.username.replace(/[^a-z0-9]/g, '') || MOCK_DATA.username,
-            name: SERVER_DATA.name || MOCK_DATA.name,
-            trustLevel: SERVER_DATA.trustLevel || MOCK_DATA.trustLevel,
-            avatarUrl: SERVER_DATA.avatarUrl.includes('{' + '{') ? MOCK_DATA.avatarUrl : SERVER_DATA.avatarUrl
+        // Use server data directly (Jinja will populate these values)
+        const USER = {
+            username: SERVER_DATA.username,
+            name: SERVER_DATA.name || SERVER_DATA.username,
+            trustLevel: SERVER_DATA.trustLevel,
+            avatarUrl: SERVER_DATA.avatarUrl
         };
 
         const email = USER.username + 'kfc@kyx03.de';
