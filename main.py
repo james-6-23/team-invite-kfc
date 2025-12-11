@@ -632,6 +632,103 @@ def get_invite_stats():
         return {"total_invites": 0, "success_count": 0, "fail_count": 0}
 
 
+# ==================== 自动邀请处理 ====================
+
+def process_auto_invite(user):
+    """处理自动邀请流程（登录后自动调用）
+
+    Returns:
+        dict: 邀请结果，包含 success, email, password, message 等字段
+    """
+    user_id = user.get("id")
+    username = user.get("username")
+    client_ip = get_client_ip_address()
+
+    result = {
+        "success": False,
+        "email": None,
+        "password": None,
+        "message": "",
+        "code": None,
+        "seats_full": False,
+        "banned": False
+    }
+
+    # 1. 获取用户锁（防止同一用户重复提交）
+    user_lock = acquire_invite_lock(user_id, timeout=60)
+    if not user_lock:
+        result["message"] = "您有一个邀请正在处理中，请稍后再试"
+        return result
+
+    try:
+        # 2. 获取全局锁（防止并发超卖）
+        global_lock = None
+        for _ in range(3):
+            global_lock = acquire_global_invite_lock(timeout=15)
+            if global_lock:
+                break
+            time.sleep(0.5)
+
+        if not global_lock:
+            result["message"] = "系统繁忙，请稍后再试"
+            return result
+
+        try:
+            # 3. 检查名额
+            try:
+                available, stats_data = check_seats_available(force_refresh=True)
+            except TeamBannedException:
+                result["message"] = "车已翻 - Team 账号状态异常"
+                result["banned"] = True
+                return result
+
+            if not available:
+                result["message"] = "车门已焊死，名额已满"
+                result["seats_full"] = True
+                return result
+
+            # 4. 生成邮箱和密码
+            email = generate_email_for_user(username)
+            password = generate_password()
+            result["email"] = email
+            result["password"] = password
+
+            log_info("Invite", "开始自动邀请流程", username=username, email=email, ip=client_ip)
+
+            # 5. 创建邮箱用户
+            success, msg = create_email_user(email, password, EMAIL_ROLE)
+            if not success and "已存在" not in msg:
+                result["message"] = f"创建邮箱失败: {msg}"
+                add_invite_record(user, email, password, False, result["message"])
+                return result
+
+            # 6. 发送 ChatGPT 邀请
+            success, msg = send_chatgpt_invite(email)
+            if not success:
+                result["message"] = f"发送邀请失败: {msg}"
+                add_invite_record(user, email, password, False, result["message"])
+                return result
+
+            # 7. 邀请成功，保存待处理邀请信息用于轮询验证码
+            session["pending_invite"] = {
+                "email": email,
+                "password": password,
+                "created_at": time.time()
+            }
+
+            result["success"] = True
+            result["message"] = "邀请发送成功，正在等待验证码"
+            add_invite_record(user, email, password, True, "邀请发送成功")
+
+            return result
+
+        finally:
+            if global_lock:
+                release_global_invite_lock(global_lock)
+    finally:
+        release_invite_lock(user_id, user_lock)
+
+
 # ==================== OAuth 路由 ====================
 
 @app.route("/login")
@@ -702,7 +799,7 @@ def callback():
             ), 403
 
         # 保存用户信息到 session
-        session["user"] = {
+        user = {
             "id": user_info.get("id"),
             "username": user_info.get("username"),
             "name": user_info.get("name"),
@@ -710,9 +807,15 @@ def callback():
             "trust_level": trust_level,
             "active": user_info.get("active"),
         }
+        session["user"] = user
 
         log_info("Auth", "用户登录", username=user_info.get("username"), trust_level=trust_level)
         session.permanent = True  # 启用持久化 Session
+
+        # 登录成功后自动执行邀请流程
+        invite_result = process_auto_invite(user)
+        session["invite_result"] = invite_result
+
         return redirect(url_for("invite_page"))
 
     except Exception as e:
@@ -733,7 +836,8 @@ def invite_page():
     if not is_logged_in():
         return redirect(url_for("login"))
     user = get_current_user()
-    return render_template("invite.html", user=user)
+    invite_result = session.get("invite_result", {})
+    return render_template("invite.html", user=user, invite_result=invite_result)
 
 
 @app.route("/api/auto-invite", methods=["POST"])

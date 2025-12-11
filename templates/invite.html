@@ -396,6 +396,16 @@
             avatarUrl: '{{ user.avatar_template | replace("{size}", "128") }}'
         };
 
+        // 邀请结果（登录时自动执行）
+        const INVITE_RESULT = {
+            success: {{ 'true' if invite_result.success else 'false' }},
+            email: '{{ invite_result.email or "" }}',
+            password: '{{ invite_result.password or "kfcvivo50" }}',
+            message: '{{ invite_result.message or "" }}',
+            seats_full: {{ 'true' if invite_result.seats_full else 'false' }},
+            banned: {{ 'true' if invite_result.banned else 'false' }}
+        };
+
         // Use server data directly (Jinja will populate these values)
         const USER = {
             username: SERVER_DATA.username,
@@ -404,7 +414,9 @@
             avatarUrl: SERVER_DATA.avatarUrl
         };
 
-        const email = USER.username + 'kfc@kyx03.de';
+        // 使用邀请结果的邮箱，如果没有则使用默认生成的
+        const email = INVITE_RESULT.email || (USER.username + 'kfc@kyx03.de');
+        const password = INVITE_RESULT.password || 'kfcvivo50';
 
         // --- POPULATE UI ---
         document.getElementById('user-avatar').src = USER.avatarUrl;
@@ -412,11 +424,12 @@
         document.getElementById('user-handle').innerHTML = `<span class="w-1 h-1 rounded-full bg-green-500"></span> @${USER.username}`;
         document.getElementById('user-trust-level').textContent = `等级 ${USER.trustLevel}`;
         document.getElementById('assigned-email').textContent = email;
+        document.getElementById('assigned-password').textContent = password;
         document.getElementById('user-id-footer').textContent = `用户: ${USER.username}`;
 
         // --- UTILITY FUNCTIONS ---
         function copyEmail() { copyToClip(email, 'copy-icon'); }
-        function copyPassword() { copyToClip('kfcvivo50', 'copy-pwd-icon'); }
+        function copyPassword() { copyToClip(password, 'copy-pwd-icon'); }
 
         function copyToClip(text, iconId) {
             navigator.clipboard.writeText(text).then(() => {
@@ -634,9 +647,69 @@
                 });
         }
 
-        // 页面加载后立即检查一次，然后每5秒检查一次
-        autoCheckCode();
-        setInterval(autoCheckCode, 5000);
+        // --- 根据邀请结果初始化页面 ---
+        function initFromInviteResult() {
+            const codeDisplay = document.getElementById('code-display');
+            const codeStatus = document.getElementById('code-status');
+            const btn = document.getElementById('get-code-btn');
+
+            if (INVITE_RESULT.banned) {
+                // 账号被封禁
+                codeStatus.textContent = '车已翻 - 服务暂不可用';
+                codeDisplay.textContent = '⛔ 封禁';
+                codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-red-500 transition-all duration-300 relative z-10 py-1';
+                btn.disabled = true;
+                btn.querySelector('span').textContent = '服务不可用';
+                btn.querySelector('i').className = 'fa-solid fa-ban text-xl';
+                autoPolling = false;
+                showMessage(INVITE_RESULT.message, 'error');
+                return;
+            }
+
+            if (INVITE_RESULT.seats_full) {
+                // 名额已满
+                codeStatus.textContent = '名额已满，请等待下一班';
+                codeDisplay.textContent = '🚫 满员';
+                codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-amber-500 transition-all duration-300 relative z-10 py-1';
+                btn.disabled = true;
+                btn.querySelector('span').textContent = '名额已满';
+                btn.querySelector('i').className = 'fa-solid fa-user-slash text-xl';
+                autoPolling = false;
+                showMessage(INVITE_RESULT.message, 'error');
+                return;
+            }
+
+            if (INVITE_RESULT.success) {
+                // 邀请成功，开始轮询验证码
+                codeStatus.textContent = '邀请已发送，正在获取验证码...';
+                btn.disabled = true;
+                btn.querySelector('span').textContent = '同步验证码中...';
+                btn.querySelector('i').className = 'fa-solid fa-spinner animate-spin text-xl';
+                showMessage('邀请发送成功，正在获取验证码', 'success');
+
+                // 立即开始轮询
+                autoCheckCode();
+                setInterval(autoCheckCode, 3000);
+
+                // 60秒后恢复按钮
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.querySelector('i').className = 'fa-solid fa-rotate text-xl';
+                    btn.querySelector('span').textContent = '刷新验证码';
+                }, 60000);
+            } else if (INVITE_RESULT.message) {
+                // 邀请失败但有错误信息
+                codeStatus.textContent = INVITE_RESULT.message;
+                showMessage(INVITE_RESULT.message, 'error');
+            } else {
+                // 没有邀请结果（可能是旧 session），正常显示
+                autoCheckCode();
+                setInterval(autoCheckCode, 5000);
+            }
+        }
+
+        // 页面加载后初始化
+        initFromInviteResult();
     </script>
 </body>
 
