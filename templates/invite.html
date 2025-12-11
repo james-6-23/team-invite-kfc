@@ -79,9 +79,19 @@
 
         body {
             background: var(--bg-color);
-            overflow: hidden;
-            touch-action: none;
+            overflow-x: hidden;
+            overflow-y: auto;
             transition: background 0.3s ease;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 移动端滚动优化 */
+        @media (max-width: 768px) {
+            body {
+                overflow-y: auto;
+                min-height: 100vh;
+                min-height: 100dvh; /* 动态视口高度 */
+            }
         }
 
         .bg-mesh {
@@ -264,16 +274,63 @@
             aspect-ratio: 16/9;
         }
 
+        /* 平板适配 */
         @media (max-width: 1024px) {
             .ratio-16-9-desktop {
                 aspect-ratio: auto;
                 height: auto;
-                min-height: 60vh;
-                max-height: 90vh;
+                min-height: auto;
+                max-height: none;
+            }
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .ratio-16-9-desktop {
+                aspect-ratio: auto;
+                height: auto;
+                min-height: auto;
+                max-height: none;
+                border-radius: 24px !important;
             }
 
-            body {
-                overflow-y: auto;
+            .mobile-compact-header {
+                padding-top: 0.75rem !important;
+                padding-bottom: 0.5rem !important;
+            }
+
+            .mobile-compact-profile {
+                padding-top: 1rem !important;
+                padding-bottom: 1rem !important;
+            }
+
+            .mobile-hide {
+                display: none !important;
+            }
+
+            .mobile-small-avatar .avatar-inner {
+                width: 5rem !important;
+                height: 5rem !important;
+            }
+
+            .mobile-compact-footer {
+                padding-top: 0.5rem !important;
+            }
+        }
+
+        /* 小屏手机适配 */
+        @media (max-width: 380px) {
+            .ratio-16-9-desktop {
+                border-radius: 20px !important;
+            }
+
+            .mobile-xs-text {
+                font-size: 0.75rem !important;
+            }
+
+            .mobile-xs-code {
+                font-size: 1.75rem !important;
+                letter-spacing: 0.1em !important;
             }
         }
 
@@ -352,6 +409,17 @@
             animation: toastSlideOut 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
         }
 
+        /* Toast 移动端适配 */
+        @media (max-width: 768px) {
+            .toast-mobile {
+                top: auto !important;
+                bottom: 1.5rem !important;
+                right: 1rem !important;
+                left: 1rem !important;
+                max-width: none !important;
+            }
+        }
+
         /* 复制验证码按钮 */
         #copy-code-btn {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -359,16 +427,16 @@
     </style>
 </head>
 
-<body class="text-white h-screen w-screen flex flex-col items-center justify-center p-4 sm:p-8">
+<body class="text-white min-h-screen w-full flex flex-col items-center justify-center p-3 sm:p-4 md:p-8 py-4 sm:py-6 md:py-8">
     <div class="bg-mesh"></div>
 
     <!-- MAIN CONTAINER (16:9 on Desktop) -->
     <div
-        class="access-card w-full max-w-[1280px] rounded-[32px] ratio-16-9-desktop flex flex-col md:flex-row relative group transition-all duration-700">
+        class="access-card w-full max-w-[1280px] rounded-[24px] sm:rounded-[32px] ratio-16-9-desktop flex flex-col md:flex-row relative group transition-all duration-700">
         <div class="scan-line"></div>
 
         <!-- LEFT PANEL: IDENTITY (35%) -->
-        <div class="identity-panel relative w-full md:w-[35%] p-6 md:p-10 flex flex-col justify-between z-20">
+        <div class="identity-panel relative w-full md:w-[35%] p-4 sm:p-6 md:p-10 flex flex-col justify-between z-20">
             <!-- Header -->
             <div class="flex items-center justify-between">
                 <div class="text-xs font-mono theme-text-muted tracking-widest opacity-60">
@@ -388,17 +456,17 @@
             </div>
 
             <!-- User Profile -->
-            <div class="flex flex-col items-center text-center my-auto py-6">
+            <div class="flex flex-col items-center text-center my-auto py-3 sm:py-4 md:py-6">
                 <!-- Avatar Container -->
-                <div class="relative mb-6 group-hover:scale-105 transition-transform duration-500">
+                <div class="relative mb-4 sm:mb-6 group-hover:scale-105 transition-transform duration-500">
                     <!-- Glow Effect -->
                     <div
-                        class="absolute inset-0 bg-blue-500 rounded-full blur-3xl opacity-20 animate-pulse-slow scale-150">
+                        class="absolute inset-0 bg-blue-500 rounded-full blur-3xl opacity-20 animate-pulse-slow scale-150 hidden sm:block">
                     </div>
 
                     <!-- Avatar Ring -->
                     <div class="avatar-ring relative">
-                        <div class="avatar-inner w-28 h-28 md:w-36 md:h-36 flex items-center justify-center">
+                        <div class="avatar-inner w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 flex items-center justify-center">
                             <!-- Avatar Image (set by JS or Jinja) -->
                             <img id="user-avatar" src="https://avatars.githubusercontent.com/u/0?v=4"
                                 data-jinja-src="{{ user.avatar_template | replace('{size}', '128') }}" alt="avatar"
@@ -408,43 +476,43 @@
 
                     <!-- Trust Level Badge -->
                     <div
-                        class="trust-badge absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full flex items-center gap-2 shadow-lg backdrop-blur-md">
-                        <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                        <span id="user-trust-level" class="text-[11px] font-bold tracking-wider text-blue-300">等级
+                        class="trust-badge absolute -bottom-2 sm:-bottom-3 left-1/2 -translate-x-1/2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full flex items-center gap-1.5 sm:gap-2 shadow-lg backdrop-blur-md">
+                        <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                        <span id="user-trust-level" class="text-[10px] sm:text-[11px] font-bold tracking-wider text-blue-300">等级
                             3</span>
                     </div>
                 </div>
 
                 <!-- User Name -->
-                <h2 id="user-display-name" class="text-2xl md:text-3xl font-bold tracking-tight mb-2 text-glow theme-text">
+                <h2 id="user-display-name" class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-1 sm:mb-2 text-glow theme-text">
                     Shane User
                 </h2>
 
                 <!-- Username Tag -->
-                <p id="user-handle" class="text-sm theme-text-muted font-mono flex items-center gap-2">
+                <p id="user-handle" class="text-xs sm:text-sm theme-text-muted font-mono flex items-center gap-2">
                     <span class="w-1 h-1 rounded-full bg-green-500"></span>
                     @shane
                 </p>
 
                 <!-- Member Since (Decorative) -->
                 <div
-                    class="mt-6 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] theme-text-muted tracking-wider">
+                    class="mt-3 sm:mt-6 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white/5 border border-white/5 text-[9px] sm:text-[10px] theme-text-muted tracking-wider">
                     已认证会员
                 </div>
             </div>
 
             <!-- Footer / System Status -->
-            <div class="space-y-3">
-                <div class="cyber-panel p-4 rounded-2xl">
-                    <div class="flex items-center justify-between text-[11px] font-medium">
+            <div class="space-y-2 sm:space-y-3">
+                <div class="cyber-panel p-3 sm:p-4 rounded-xl sm:rounded-2xl">
+                    <div class="flex items-center justify-between text-[10px] sm:text-[11px] font-medium">
                         <span class="theme-text-muted tracking-wider">系统状态</span>
-                        <span id="seats-info" class="theme-text-secondary flex items-center gap-2">
+                        <span id="seats-info" class="theme-text-secondary flex items-center gap-1.5 sm:gap-2">
                             <span class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span> 连接中...
                         </span>
                     </div>
                 </div>
                 <a href="/logout"
-                    class="flex items-center justify-center gap-2 text-xs theme-text-muted hover:text-red-400 transition-colors py-2 rounded-xl hover:bg-red-500/10">
+                    class="flex items-center justify-center gap-2 text-[11px] sm:text-xs theme-text-muted hover:text-red-400 transition-colors py-1.5 sm:py-2 rounded-xl hover:bg-red-500/10">
                     <i class="fa-solid fa-power-off"></i> 安全退出
                 </a>
             </div>
@@ -453,21 +521,24 @@
         <!-- DIVIDER (Desktop only) -->
         <div class="hidden md:block vert-divider h-full"></div>
 
+        <!-- Mobile Divider -->
+        <div class="block md:hidden w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2"></div>
+
         <!-- RIGHT PANEL: OPERATIONAL (65%) -->
-        <div class="relative w-full md:w-[65%] p-6 md:p-10 flex flex-col z-20 overflow-hidden">
+        <div class="relative w-full md:w-[65%] p-4 sm:p-6 md:p-10 flex flex-col z-20 overflow-hidden">
             <!-- Top Links -->
-            <div class="flex justify-end gap-4 mb-6 md:mb-10">
+            <div class="flex justify-end gap-2 sm:gap-4 mb-4 sm:mb-6 md:mb-10">
                 <a href="https://kyx-cloud-email.kkyyxx.top/" target="_blank"
-                    class="text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5">
-                    <i class="fa-solid fa-inbox"></i> 邮箱
+                    class="text-[11px] sm:text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg hover:bg-white/5">
+                    <i class="fa-solid fa-inbox"></i> <span class="hidden xs:inline">邮箱</span>
                 </a>
                 <a href="https://chatgpt.com/" target="_blank"
-                    class="text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5">
-                    <img src="https://cdn.oaistatic.com/assets/favicon-l4nq08hd.svg" alt="ChatGPT" class="w-4 h-4 object-contain"> ChatGPT
+                    class="text-[11px] sm:text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg hover:bg-white/5">
+                    <img src="https://cdn.oaistatic.com/assets/favicon-l4nq08hd.svg" alt="ChatGPT" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain"> <span class="hidden xs:inline">ChatGPT</span>
                 </a>
                 <a href="https://linux.do/" target="_blank"
-                    class="text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5">
-                    <i class="fa-solid fa-comments"></i> 社区
+                    class="text-[11px] sm:text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg hover:bg-white/5">
+                    <i class="fa-solid fa-comments"></i> <span class="hidden xs:inline">社区</span>
                 </a>
             </div>
 
@@ -475,59 +546,59 @@
             <div class="flex-1 flex flex-col justify-center">
 
                 <!-- Credentials Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                     <!-- Email Field -->
-                    <div class="ghost-input-group p-4 rounded-2xl flex flex-col justify-center relative">
-                        <div class="text-[10px] font-bold theme-text-muted tracking-wider mb-2">专属邮箱</div>
-                        <div class="flex items-center justify-between gap-3">
-                            <div class="font-mono text-sm md:text-base theme-text truncate select-all"
+                    <div class="ghost-input-group p-3 sm:p-4 rounded-xl sm:rounded-2xl flex flex-col justify-center relative">
+                        <div class="text-[9px] sm:text-[10px] font-bold theme-text-muted tracking-wider mb-1.5 sm:mb-2">专属邮箱</div>
+                        <div class="flex items-center justify-between gap-2 sm:gap-3">
+                            <div class="font-mono text-xs sm:text-sm md:text-base theme-text truncate select-all"
                                 id="assigned-email">
                                 shane@kyx03.de
                             </div>
                             <button onclick="copyEmail()"
-                                class="copy-btn w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center theme-text-muted hover:text-blue-400 shrink-0">
-                                <i id="copy-icon" class="fa-regular fa-copy text-sm"></i>
+                                class="copy-btn w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center theme-text-muted hover:text-blue-400 shrink-0">
+                                <i id="copy-icon" class="fa-regular fa-copy text-xs sm:text-sm"></i>
                             </button>
                         </div>
                     </div>
 
                     <!-- Password Field -->
-                    <div class="ghost-input-group p-4 rounded-2xl flex flex-col justify-center relative">
-                        <div class="text-[10px] font-bold theme-text-muted tracking-wider mb-2">登录密码</div>
-                        <div class="flex items-center justify-between gap-3">
-                            <div class="font-mono text-sm md:text-base theme-text tracking-wide"
+                    <div class="ghost-input-group p-3 sm:p-4 rounded-xl sm:rounded-2xl flex flex-col justify-center relative">
+                        <div class="text-[9px] sm:text-[10px] font-bold theme-text-muted tracking-wider mb-1.5 sm:mb-2">登录密码</div>
+                        <div class="flex items-center justify-between gap-2 sm:gap-3">
+                            <div class="font-mono text-xs sm:text-sm md:text-base theme-text tracking-wide"
                                 id="assigned-password">kfcvivo50</div>
                             <button onclick="copyPassword()"
-                                class="copy-btn w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center theme-text-muted hover:text-blue-400 shrink-0">
-                                <i id="copy-pwd-icon" class="fa-regular fa-copy text-sm"></i>
+                                class="copy-btn w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center theme-text-muted hover:text-blue-400 shrink-0">
+                                <i id="copy-pwd-icon" class="fa-regular fa-copy text-xs sm:text-sm"></i>
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Code Section -->
-                <div class="cyber-panel rounded-2xl p-4 md:p-5 text-center relative overflow-hidden mb-4">
+                <div class="cyber-panel rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 text-center relative overflow-hidden mb-3 sm:mb-4">
                     <div class="absolute inset-0 bg-gradient-to-t from-blue-500/5 to-transparent pointer-events-none">
                     </div>
 
-                    <div class="text-xs font-mono text-blue-400 mb-2 opacity-90 tracking-widest font-semibold">验证码</div>
+                    <div class="text-[10px] sm:text-xs font-mono text-blue-400 mb-1.5 sm:mb-2 opacity-90 tracking-widest font-semibold">验证码</div>
 
                     <div id="code-display"
-                        class="text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-zinc-600 transition-all duration-300 relative z-10 py-1">
+                        class="text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-[0.12em] sm:tracking-[0.15em] text-zinc-600 transition-all duration-300 relative z-10 py-0.5 sm:py-1">
                         --- ---
                     </div>
 
-                    <div id="code-status" class="text-sm text-zinc-500 mt-2 tracking-wide">点击下方按钮获取</div>
+                    <div id="code-status" class="text-xs sm:text-sm text-zinc-500 mt-1.5 sm:mt-2 tracking-wide">点击下方按钮获取</div>
 
                     <!-- 验证码时间显示 -->
-                    <div id="code-time" class="text-xs text-zinc-500 mt-2 hidden">
+                    <div id="code-time" class="text-[10px] sm:text-xs text-zinc-500 mt-1.5 sm:mt-2 hidden">
                         <i class="fa-regular fa-clock mr-1"></i>
                         <span id="code-time-text">--</span>
                     </div>
 
                     <!-- 复制验证码按钮 -->
                     <button id="copy-code-btn" onclick="copyCode()"
-                        class="mt-3 px-4 py-2 rounded-lg bg-white/5 hover:bg-blue-500/20 border border-white/10 hover:border-blue-500/30 text-zinc-400 hover:text-blue-400 transition-all text-xs font-medium inline-flex items-center gap-2 opacity-50 cursor-not-allowed"
+                        class="mt-2 sm:mt-3 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-white/5 hover:bg-blue-500/20 border border-white/10 hover:border-blue-500/30 text-zinc-400 hover:text-blue-400 transition-all text-[11px] sm:text-xs font-medium inline-flex items-center gap-1.5 sm:gap-2 opacity-50 cursor-not-allowed"
                         disabled>
                         <i id="copy-code-icon" class="fa-regular fa-copy"></i>
                         <span>复制验证码</span>
@@ -536,14 +607,14 @@
 
                 <!-- Action Button -->
                 <button id="get-code-btn" onclick="getCode()"
-                    class="w-full py-4 rounded-2xl action-btn text-white font-bold text-base tracking-wide flex items-center justify-center gap-3 relative overflow-hidden group/btn">
-                    <i class="fa-solid fa-fingerprint text-lg opacity-80"></i>
+                    class="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl action-btn text-white font-bold text-sm sm:text-base tracking-wide flex items-center justify-center gap-2 sm:gap-3 relative overflow-hidden group/btn">
+                    <i class="fa-solid fa-fingerprint text-base sm:text-lg opacity-80"></i>
                     <span>获取验证码</span>
                 </button>
             </div>
 
             <!-- Bottom Decoration -->
-            <div class="mt-4 flex justify-between items-center text-[10px] theme-text-muted">
+            <div class="mt-3 sm:mt-4 flex justify-between items-center text-[9px] sm:text-[10px] theme-text-muted">
                 <span><i class="fa-solid fa-lock mr-1"></i>安全加密连接</span>
                 <span id="user-id-footer">用户: shane</span>
             </div>
@@ -700,7 +771,12 @@
             const icon = isError ? 'fa-circle-xmark' : 'fa-circle-check';
             const ringColor = isError ? 'ring-red-400/30' : 'ring-green-400/30';
 
-            toast.className = `fixed top-6 right-6 z-[9999] px-5 py-3.5 rounded-2xl ${bgColor} backdrop-blur-xl shadow-2xl text-white text-sm font-medium flex items-center gap-3 toast-enter ring-1 ${ringColor}`;
+            // 移动端底部显示，桌面端右上角显示
+            const isMobile = window.innerWidth < 768;
+            const positionClass = isMobile
+                ? 'bottom-4 left-4 right-4 top-auto'
+                : 'top-6 right-6';
+            toast.className = `fixed ${positionClass} z-[9999] px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl ${bgColor} backdrop-blur-xl shadow-2xl text-white text-xs sm:text-sm font-medium flex items-center gap-2 sm:gap-3 toast-enter ring-1 ${ringColor}`;
             toast.innerHTML = `
                 <div class="w-6 h-6 rounded-full ${isError ? 'bg-red-400/30' : 'bg-green-400/30'} flex items-center justify-center">
                     <i class="fa-solid ${icon} text-xs"></i>
@@ -754,7 +830,7 @@
 
             const fmt = code.length === 6 ? code.slice(0, 3) + ' ' + code.slice(3) : code;
             codeDisplay.textContent = fmt;
-            codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-[#30D158] code-glow transition-all duration-300 relative z-10 py-1';
+            codeDisplay.className = 'text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-[0.12em] sm:tracking-[0.15em] text-[#30D158] code-glow transition-all duration-300 relative z-10 py-0.5 sm:py-1';
             codeStatus.textContent = '验证码已就绪 ✓';
 
             // 显示验证码时间
@@ -811,7 +887,7 @@
                 if (inviteData.banned) {
                     codeStatus.textContent = '车已翻 - 服务暂不可用';
                     codeDisplay.textContent = '⛔ 封禁';
-                    codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-red-500 transition-all duration-300 relative z-10 py-1';
+                    codeDisplay.className = 'text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-[0.12em] sm:tracking-[0.15em] text-red-500 transition-all duration-300 relative z-10 py-0.5 sm:py-1';
                     btn.querySelector('span').textContent = '服务不可用';
                     btn.querySelector('i').className = 'fa-solid fa-ban text-xl';
                     showMessage(inviteData.message, 'error');
@@ -821,7 +897,7 @@
                 if (inviteData.seats_full) {
                     codeStatus.textContent = '名额已满，请等待下一班';
                     codeDisplay.textContent = '🚫 满员';
-                    codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-amber-500 transition-all duration-300 relative z-10 py-1';
+                    codeDisplay.className = 'text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-[0.12em] sm:tracking-[0.15em] text-amber-500 transition-all duration-300 relative z-10 py-0.5 sm:py-1';
                     btn.querySelector('span').textContent = '名额已满';
                     btn.querySelector('i').className = 'fa-solid fa-user-slash text-xl';
                     showMessage(inviteData.message, 'error');
@@ -878,7 +954,7 @@
             // 状态1: 用户已在空间中
             if (INVITE_STATUS === 'in_space') {
                 codeDisplay.textContent = '已入空间';
-                codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-green-400 code-glow transition-all duration-300 relative z-10 py-1';
+                codeDisplay.className = 'text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-[0.12em] sm:tracking-[0.15em] text-green-400 code-glow transition-all duration-300 relative z-10 py-0.5 sm:py-1';
                 codeStatus.textContent = '您已成功加入 ChatGPT Team 空间';
                 btn.innerHTML = '<i class="fa-solid fa-check-circle text-xl"></i><span>已完成</span>';
                 btn.disabled = true;
@@ -909,14 +985,14 @@
                         if (data.banned) {
                             codeStatus.textContent = '车已翻 - 服务暂不可用';
                             codeDisplay.textContent = '⛔ 封禁';
-                            codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-red-500 transition-all duration-300 relative z-10 py-1';
+                            codeDisplay.className = 'text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-[0.12em] sm:tracking-[0.15em] text-red-500 transition-all duration-300 relative z-10 py-0.5 sm:py-1';
                             btn.querySelector('span').textContent = '服务不可用';
                             btn.querySelector('i').className = 'fa-solid fa-ban text-xl';
                             showMessage(data.message, 'error');
                         } else if (data.seats_full) {
                             codeStatus.textContent = '名额已满';
                             codeDisplay.textContent = '🚫 满员';
-                            codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-amber-500 transition-all duration-300 relative z-10 py-1';
+                            codeDisplay.className = 'text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-[0.12em] sm:tracking-[0.15em] text-amber-500 transition-all duration-300 relative z-10 py-0.5 sm:py-1';
                             btn.querySelector('span').textContent = '名额已满';
                             btn.querySelector('i').className = 'fa-solid fa-user-slash text-xl';
                             showMessage(data.message, 'error');
