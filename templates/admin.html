@@ -584,20 +584,34 @@
             `;
         }
 
+        // 存储基础数据用于计算
+        let statsData = { seats_entitled: 0, seats_in_use: 0 };
+
         function loadStats() {
             fetch('/stats')
                 .then(r => r.json())
                 .then(data => {
                     if (data.success && data.data) {
                         const d = data.data;
-                        const available = (d.seats_entitled || 0) - (d.seats_in_use || 0) - (d.pending_invites || 0);
-                        document.getElementById('stat-in-use').textContent = d.seats_in_use || 0;
+                        statsData.seats_entitled = d.seats_entitled || 0;
+                        statsData.seats_in_use = d.seats_in_use || 0;
+
+                        document.getElementById('stat-in-use').textContent = statsData.seats_in_use;
                         document.getElementById('stat-pending').textContent = d.pending_invites || 0;
-                        document.getElementById('stat-total').textContent = d.seats_entitled || 0;
-                        document.getElementById('stat-available').textContent = available;
+                        document.getElementById('stat-total').textContent = statsData.seats_entitled;
+                        updateAvailableSeats();
                     }
                 })
                 .catch(() => { });
+        }
+
+        // 重新计算并更新剩余名额
+        function updateAvailableSeats() {
+            const inUse = parseInt(document.getElementById('stat-in-use').textContent) || 0;
+            const pending = parseInt(document.getElementById('stat-pending').textContent) || 0;
+            const total = statsData.seats_entitled || parseInt(document.getElementById('stat-total').textContent) || 0;
+            const available = total - inUse - pending;
+            document.getElementById('stat-available').textContent = available;
         }
 
         // 刷新动画辅助函数
@@ -630,6 +644,11 @@
                         badge.textContent = count;
                         if (count > 0) badge.classList.remove('hidden');
                         else badge.classList.add('hidden');
+
+                        // 同步更新顶部"待上车"数字
+                        document.getElementById('stat-pending').textContent = count;
+                        // 重新计算剩余名额
+                        updateAvailableSeats();
                     }
                 })
                 .catch(err => console.error(err))
@@ -651,6 +670,11 @@
                         badge.textContent = count;
                         if (count > 0) badge.classList.remove('hidden');
                         else badge.classList.add('hidden');
+
+                        // 同步更新顶部"已上车"数字
+                        document.getElementById('stat-in-use').textContent = count;
+                        // 重新计算剩余名额
+                        updateAvailableSeats();
                     }
                 })
                 .catch(err => console.error(err))
