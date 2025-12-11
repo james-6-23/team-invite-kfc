@@ -122,6 +122,30 @@
         .link-icon:hover {
             transform: translateY(-3px) scale(1.1);
         }
+
+        /* 炫酷脉冲文字效果 */
+        .glow-text {
+            background: linear-gradient(90deg, #0A84FF, #30D158, #FFD60A, #FF453A, #BF5AF2, #0A84FF);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradient-flow 4s ease infinite, text-glow-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes gradient-flow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        @keyframes text-glow-pulse {
+            0%, 100% {
+                filter: drop-shadow(0 0 8px rgba(10, 132, 255, 0.6)) drop-shadow(0 0 20px rgba(10, 132, 255, 0.3));
+            }
+            50% {
+                filter: drop-shadow(0 0 15px rgba(48, 209, 88, 0.8)) drop-shadow(0 0 30px rgba(48, 209, 88, 0.4));
+            }
+        }
     </style>
 </head>
 
@@ -295,7 +319,7 @@
         <div class="w-full md:w-[55%] p-8 md:p-16 flex flex-col justify-center relative bg-black/20">
             <div class="max-w-sm mx-auto w-full">
                 <div class="text-center mb-10">
-                    <h2 class="text-2xl font-bold text-white mb-3">感谢vv佬</h2>
+                    <h2 class="text-2xl font-bold mb-3 glow-text">感谢vv佬</h2>
                     <p class="text-zinc-500 text-sm leading-relaxed">
                         车门焊死 随时翻车
                     </p>
@@ -373,10 +397,10 @@
                     animateValue("stat-total", 0, d.seats_entitled || 0, 1000);
                     animateValue("stat-available", 0, available, 1000);
 
-                    // Update capacity bar - 显示空闲比例
+                    // Update capacity bar - 显示空闲比例（保留一位小数）
                     const total = d.seats_entitled || 1;
                     const used = (d.seats_in_use || 0) + (d.pending_invites || 0);
-                    const availablePercent = Math.round((available / total) * 100);
+                    const availablePercent = ((available / total) * 100).toFixed(1);
                     const capacityBar = document.querySelector('#capacity-bar > div');
                     const capacityText = document.getElementById('capacity-text');
                     if (capacityBar) capacityBar.style.width = availablePercent + '%';
