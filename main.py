@@ -420,19 +420,38 @@ def create_email_user(email, password, role_name):
         return False, str(e)
 
 
-def fetch_pending_invites_from_api(limit=100):
-    """从 API 获取待处理邀请列表（内部使用）"""
-    url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/invites?offset=0&limit={limit}&query="
+def fetch_pending_invites_from_api(limit=1000):
+    """从 API 获取待处理邀请列表（内部使用）
+
+    支持分页获取所有数据
+    """
     headers = build_base_headers()
+    all_items = []
+    offset = 0
+    page_size = 100  # API 单次最大返回数
+    total = 0
 
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
+        while True:
+            url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/invites?offset={offset}&limit={page_size}&query="
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code != 200:
+                log_error("Invite", "获取待处理邀请失败", status=response.status_code)
+                break
+
             data = response.json()
-            return data.get("items", []), data.get("total", 0)
-        else:
-            log_error("Invite", "获取待处理邀请失败", status=response.status_code)
-            return [], 0
+            items = data.get("items", [])
+            total = data.get("total", 0)
+            all_items.extend(items)
+
+            # 如果获取的数据少于 page_size，说明已经是最后一页
+            if len(items) < page_size or len(all_items) >= total or len(all_items) >= limit:
+                break
+
+            offset += page_size
+
+        return all_items[:limit], total
     except Exception as e:
         log_error("Invite", "获取待处理邀请异常", str(e))
         return [], 0
@@ -481,19 +500,38 @@ def check_user_already_invited(email):
     return False
 
 
-def fetch_space_members_from_api(limit=100):
-    """从 API 获取空间成员列表"""
-    url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/users?offset=0&limit={limit}&query="
+def fetch_space_members_from_api(limit=1000):
+    """从 API 获取空间成员列表
+
+    支持分页获取所有数据
+    """
     headers = build_base_headers()
+    all_items = []
+    offset = 0
+    page_size = 100  # API 单次最大返回数
+    total = 0
 
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
+        while True:
+            url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/users?offset={offset}&limit={page_size}&query="
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code != 200:
+                log_error("Members", "获取空间成员失败", status=response.status_code)
+                break
+
             data = response.json()
-            return data.get("items", []), data.get("total", 0)
-        else:
-            log_error("Members", "获取空间成员失败", status=response.status_code)
-            return [], 0
+            items = data.get("items", [])
+            total = data.get("total", 0)
+            all_items.extend(items)
+
+            # 如果获取的数据少于 page_size，说明已经是最后一页
+            if len(items) < page_size or len(all_items) >= total or len(all_items) >= limit:
+                break
+
+            offset += page_size
+
+        return all_items[:limit], total
     except Exception as e:
         log_error("Members", "获取空间成员异常", str(e))
         return [], 0
@@ -1422,8 +1460,10 @@ def admin_pending_invites():
     if not session.get("admin_logged_in"):
         return jsonify({"success": False, "message": "未授权"}), 401
 
-    items, total = get_pending_invites(100)
-    log_info("Admin", "查询待处理邀请", total=total)
+    # 强制从 API 获取最新数据并更新缓存
+    items, total = fetch_pending_invites_from_api(1000)
+    set_cached_pending_invites(items, total)
+    log_info("Admin", "查询待处理邀请", total=total, count=len(items))
     return jsonify({
         "success": True,
         "items": items,
@@ -1437,25 +1477,14 @@ def admin_members():
     if not session.get("admin_logged_in"):
         return jsonify({"success": False, "message": "未授权"}), 401
 
-    url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/users?offset=0&limit=100&query="
-    headers = build_base_headers()
-
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            log_info("Admin", "查询空间成员", total=data.get("total", 0))
-            return jsonify({
-                "success": True,
-                "items": data.get("items", []),
-                "total": data.get("total", 0)
-            })
-        else:
-            log_error("Admin", "获取空间成员失败", status=response.status_code)
-            return jsonify({"success": False, "message": f"API错误: {response.status_code}"}), 500
-    except Exception as e:
-        log_error("Admin", "获取空间成员异常", str(e))
-        return jsonify({"success": False, "message": str(e)}), 500
+    # 强制从 API 获取最新数据（分页获取所有）
+    items, total = fetch_space_members_from_api(1000)
+    log_info("Admin", "查询空间成员", total=total, count=len(items))
+    return jsonify({
+        "success": True,
+        "items": items,
+        "total": total
+    })
 
 
 # ==================== 健康检查 ====================

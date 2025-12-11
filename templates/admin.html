@@ -638,15 +638,15 @@
                         appStore.pending.items = data.items || [];
                         renderTable('pending', renderPendingRow);
 
-                        // Update badge
-                        const count = data.items ? data.items.length : 0;
+                        // Update badge - 使用 total 而不是 items.length
+                        const total = data.total || 0;
                         const badge = document.getElementById('tab-count-pending');
-                        badge.textContent = count;
-                        if (count > 0) badge.classList.remove('hidden');
+                        badge.textContent = total;
+                        if (total > 0) badge.classList.remove('hidden');
                         else badge.classList.add('hidden');
 
                         // 同步更新顶部"待上车"数字
-                        document.getElementById('stat-pending').textContent = count;
+                        document.getElementById('stat-pending').textContent = total;
                         // 重新计算剩余名额
                         updateAvailableSeats();
                     }
@@ -664,15 +664,15 @@
                         appStore.members.items = data.items || [];
                         renderTable('members', renderMembersRow);
 
-                        // Update badge
-                        const count = data.items ? data.items.length : 0;
+                        // Update badge - 使用 total 而不是 items.length
+                        const total = data.total || 0;
                         const badge = document.getElementById('tab-count-members');
-                        badge.textContent = count;
-                        if (count > 0) badge.classList.remove('hidden');
+                        badge.textContent = total;
+                        if (total > 0) badge.classList.remove('hidden');
                         else badge.classList.add('hidden');
 
                         // 同步更新顶部"已上车"数字
-                        document.getElementById('stat-in-use').textContent = count;
+                        document.getElementById('stat-in-use').textContent = total;
                         // 重新计算剩余名额
                         updateAvailableSeats();
                     }
