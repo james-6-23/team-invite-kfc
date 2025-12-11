@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="dark">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
@@ -47,10 +47,41 @@
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
+        :root {
+            --bg-color: #000000;
+            --card-bg: rgba(30, 30, 32, 0.6);
+            --card-border: rgba(255, 255, 255, 0.12);
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --panel-bg: rgba(0, 0, 0, 0.25);
+            --panel-border: rgba(255, 255, 255, 0.06);
+            --input-bg: rgba(255, 255, 255, 0.03);
+            --input-border: rgba(255, 255, 255, 0.08);
+            --input-hover-bg: rgba(255, 255, 255, 0.06);
+            --mesh-opacity: 0.8;
+        }
+
+        .light {
+            --bg-color: #f4f4f5;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --card-border: rgba(0, 0, 0, 0.08);
+            --text-primary: #18181b;
+            --text-secondary: #52525b;
+            --text-muted: #a1a1aa;
+            --panel-bg: rgba(0, 0, 0, 0.03);
+            --panel-border: rgba(0, 0, 0, 0.06);
+            --input-bg: rgba(0, 0, 0, 0.03);
+            --input-border: rgba(0, 0, 0, 0.08);
+            --input-hover-bg: rgba(0, 0, 0, 0.06);
+            --mesh-opacity: 0.3;
+        }
+
         body {
-            background: #000000;
+            background: var(--bg-color);
             overflow: hidden;
             touch-action: none;
+            transition: background 0.3s ease;
         }
 
         .bg-mesh {
@@ -62,20 +93,22 @@
                 radial-gradient(circle at 80% 20%, rgba(48, 209, 88, 0.1), transparent 40%),
                 radial-gradient(circle at 20% 80%, rgba(94, 92, 230, 0.15), transparent 40%);
             animation: float 20s ease-in-out infinite alternate;
-            opacity: 0.8;
+            opacity: var(--mesh-opacity);
+            transition: opacity 0.3s ease;
         }
 
         .access-card {
-            background: rgba(30, 30, 32, 0.6);
+            background: var(--card-bg);
             backdrop-filter: blur(40px) saturate(180%);
             -webkit-backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid var(--card-border);
             box-shadow:
-                0 0 0 1px rgba(0, 0, 0, 0.2),
-                0 20px 40px -10px rgba(0, 0, 0, 0.5),
-                0 0 80px rgba(0, 0, 0, 0.3);
+                0 0 0 1px rgba(0, 0, 0, 0.1),
+                0 20px 40px -10px rgba(0, 0, 0, 0.2),
+                0 0 80px rgba(0, 0, 0, 0.1);
             position: relative;
             overflow: hidden;
+            transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .access-card::before {
@@ -85,6 +118,10 @@
             background: linear-gradient(120deg, rgba(255, 255, 255, 0.05) 0%, transparent 40%);
             pointer-events: none;
             z-index: 10;
+        }
+
+        .light .access-card::before {
+            background: linear-gradient(120deg, rgba(255, 255, 255, 0.5) 0%, transparent 40%);
         }
 
         .scan-line {
@@ -117,19 +154,80 @@
         }
 
         .cyber-panel {
-            background: rgba(0, 0, 0, 0.25);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
 
         .ghost-input-group {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
             transition: all 0.2s;
         }
 
         .ghost-input-group:hover {
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(255, 255, 255, 0.15);
+            background: var(--input-hover-bg);
+            border-color: var(--input-border);
+        }
+
+        /* 主题文字颜色适配 */
+        .theme-text {
+            color: var(--text-primary);
+            transition: color 0.3s ease;
+        }
+
+        .theme-text-secondary {
+            color: var(--text-secondary);
+            transition: color 0.3s ease;
+        }
+
+        .theme-text-muted {
+            color: var(--text-muted);
+            transition: color 0.3s ease;
+        }
+
+        /* 主题切换按钮 */
+        .theme-toggle {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            background: var(--input-hover-bg);
+            transform: scale(1.05);
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.95);
+        }
+
+        .theme-toggle i {
+            font-size: 14px;
+            transition: transform 0.3s ease, opacity 0.2s ease;
+        }
+
+        .light .theme-toggle .fa-moon {
+            display: none;
+        }
+
+        .light .theme-toggle .fa-sun {
+            display: block;
+        }
+
+        html:not(.light) .theme-toggle .fa-sun {
+            display: none;
+        }
+
+        html:not(.light) .theme-toggle .fa-moon {
+            display: block;
         }
 
         .action-btn {
@@ -273,12 +371,19 @@
         <div class="identity-panel relative w-full md:w-[35%] p-6 md:p-10 flex flex-col justify-between z-20">
             <!-- Header -->
             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 text-xs font-mono text-ios-gray tracking-widest opacity-60">
+                <div class="flex items-center gap-2 text-xs font-mono theme-text-muted tracking-widest opacity-60">
                     <i class="fa-brands fa-linux"></i> LINUX.DO
                 </div>
-                <div
-                    class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/5 border border-white/10 text-zinc-300 tracking-wider backdrop-blur-sm">
-                    通行证
+                <div class="flex items-center gap-2">
+                    <!-- 主题切换按钮 -->
+                    <button id="theme-toggle" class="theme-toggle theme-text-secondary" title="切换主题">
+                        <i class="fa-solid fa-moon"></i>
+                        <i class="fa-solid fa-sun"></i>
+                    </button>
+                    <div
+                        class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/5 border border-white/10 theme-text-secondary tracking-wider backdrop-blur-sm">
+                        通行证
+                    </div>
                 </div>
             </div>
 
@@ -311,19 +416,19 @@
                 </div>
 
                 <!-- User Name -->
-                <h2 id="user-display-name" class="text-2xl md:text-3xl font-bold tracking-tight mb-2 text-glow">
+                <h2 id="user-display-name" class="text-2xl md:text-3xl font-bold tracking-tight mb-2 text-glow theme-text">
                     Shane User
                 </h2>
 
                 <!-- Username Tag -->
-                <p id="user-handle" class="text-sm text-ios-gray font-mono flex items-center gap-2">
+                <p id="user-handle" class="text-sm theme-text-muted font-mono flex items-center gap-2">
                     <span class="w-1 h-1 rounded-full bg-green-500"></span>
                     @shane
                 </p>
 
                 <!-- Member Since (Decorative) -->
                 <div
-                    class="mt-6 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] text-zinc-500 tracking-wider">
+                    class="mt-6 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] theme-text-muted tracking-wider">
                     已认证会员
                 </div>
             </div>
@@ -332,14 +437,14 @@
             <div class="space-y-3">
                 <div class="cyber-panel p-4 rounded-2xl">
                     <div class="flex items-center justify-between text-[11px] font-medium">
-                        <span class="text-ios-gray tracking-wider">系统状态</span>
-                        <span id="seats-info" class="text-zinc-300 flex items-center gap-2">
+                        <span class="theme-text-muted tracking-wider">系统状态</span>
+                        <span id="seats-info" class="theme-text-secondary flex items-center gap-2">
                             <span class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span> 连接中...
                         </span>
                     </div>
                 </div>
                 <a href="/logout"
-                    class="flex items-center justify-center gap-2 text-xs text-zinc-500 hover:text-red-400 transition-colors py-2 rounded-xl hover:bg-red-500/10">
+                    class="flex items-center justify-center gap-2 text-xs theme-text-muted hover:text-red-400 transition-colors py-2 rounded-xl hover:bg-red-500/10">
                     <i class="fa-solid fa-power-off"></i> 安全退出
                 </a>
             </div>
@@ -373,14 +478,14 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <!-- Email Field -->
                     <div class="ghost-input-group p-4 rounded-2xl flex flex-col justify-center relative">
-                        <div class="text-[10px] font-bold text-ios-gray tracking-wider mb-2">专属邮箱</div>
+                        <div class="text-[10px] font-bold theme-text-muted tracking-wider mb-2">专属邮箱</div>
                         <div class="flex items-center justify-between gap-3">
-                            <div class="font-mono text-sm md:text-base text-zinc-200 truncate select-all"
+                            <div class="font-mono text-sm md:text-base theme-text truncate select-all"
                                 id="assigned-email">
                                 shane@kyx03.de
                             </div>
                             <button onclick="copyEmail()"
-                                class="copy-btn w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center text-zinc-400 hover:text-blue-400 shrink-0">
+                                class="copy-btn w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center theme-text-muted hover:text-blue-400 shrink-0">
                                 <i id="copy-icon" class="fa-regular fa-copy text-sm"></i>
                             </button>
                         </div>
@@ -388,12 +493,12 @@
 
                     <!-- Password Field -->
                     <div class="ghost-input-group p-4 rounded-2xl flex flex-col justify-center relative">
-                        <div class="text-[10px] font-bold text-ios-gray tracking-wider mb-2">登录密码</div>
+                        <div class="text-[10px] font-bold theme-text-muted tracking-wider mb-2">登录密码</div>
                         <div class="flex items-center justify-between gap-3">
-                            <div class="font-mono text-sm md:text-base text-zinc-200 tracking-wide"
+                            <div class="font-mono text-sm md:text-base theme-text tracking-wide"
                                 id="assigned-password">kfcvivo50</div>
                             <button onclick="copyPassword()"
-                                class="copy-btn w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center text-zinc-400 hover:text-blue-400 shrink-0">
+                                class="copy-btn w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center theme-text-muted hover:text-blue-400 shrink-0">
                                 <i id="copy-pwd-icon" class="fa-regular fa-copy text-sm"></i>
                             </button>
                         </div>
@@ -438,8 +543,8 @@
             </div>
 
             <!-- Bottom Decoration -->
-            <div class="mt-4 flex justify-between items-center text-[10px] text-zinc-600">
-                <span>🔒 安全加密连接</span>
+            <div class="mt-4 flex justify-between items-center text-[10px] theme-text-muted">
+                <span><i class="fa-solid fa-lock mr-1"></i>安全加密连接</span>
                 <span id="user-id-footer">用户: shane</span>
             </div>
         </div>
@@ -803,6 +908,32 @@
             // 非新登录用户，显示默认状态
             codeStatus.textContent = '点击下方按钮获取验证码';
         }
+
+        // --- 主题切换 ---
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light') {
+                document.documentElement.classList.add('light');
+            } else if (saved === 'dark') {
+                document.documentElement.classList.remove('light');
+            } else {
+                // 跟随系统
+                if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+                    document.documentElement.classList.add('light');
+                }
+            }
+        }
+
+        function toggleTheme() {
+            const isLight = document.documentElement.classList.toggle('light');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        }
+
+        // 初始化主题
+        initTheme();
+
+        // 绑定切换按钮
+        document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
         // --- INIT ---
         loadStats();
