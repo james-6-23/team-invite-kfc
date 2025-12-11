@@ -458,7 +458,11 @@ def send_chatgpt_invite(email):
 
 
 def get_verification_code(email, max_retries=10, interval=3):
-    """从邮箱获取验证码"""
+    """从邮箱获取验证码
+
+    Returns:
+        tuple: (code, error, email_time) - 验证码、错误信息、邮件时间
+    """
     url = f"{EMAIL_API_BASE}/emailList"
     headers = {
         "Authorization": EMAIL_API_AUTH,
@@ -478,11 +482,12 @@ def get_verification_code(email, max_retries=10, interval=3):
                 if emails:
                     latest_email = emails[0]
                     subject = latest_email.get("subject", "")
+                    email_time = latest_email.get("createTime", "")  # 获取邮件时间
                     match = re.search(r"代码为\s*(\d{6})", subject)
                     if match:
                         code = match.group(1)
                         log_info("Code", "验证码获取成功", email=email, code=code, attempt=i+1)
-                        return code, None
+                        return code, None, email_time
         except Exception as e:
             log_error("Code", "获取异常", str(e), email=email, attempt=i+1)
 
@@ -490,7 +495,7 @@ def get_verification_code(email, max_retries=10, interval=3):
             time.sleep(interval)
 
     log_warn("Code", "验证码获取失败", email=email, attempts=max_retries)
-    return None, "未能获取验证码"
+    return None, "未能获取验证码", None
 
 
 def is_logged_in():
@@ -812,9 +817,8 @@ def callback():
         log_info("Auth", "用户登录", username=user_info.get("username"), trust_level=trust_level)
         session.permanent = True  # 启用持久化 Session
 
-        # 登录成功后自动执行邀请流程
-        invite_result = process_auto_invite(user)
-        session["invite_result"] = invite_result
+        # 标记需要执行邀请（在 invite 页面异步执行）
+        session["need_invite"] = True
 
         return redirect(url_for("invite_page"))
 
@@ -836,8 +840,10 @@ def invite_page():
     if not is_logged_in():
         return redirect(url_for("login"))
     user = get_current_user()
+    # 检查是否需要执行邀请（新登录用户）
+    need_invite = session.pop("need_invite", False)
     invite_result = session.get("invite_result", {})
-    return render_template("invite.html", user=user, invite_result=invite_result)
+    return render_template("invite.html", user=user, invite_result=invite_result, need_invite=need_invite)
 
 
 @app.route("/api/auto-invite", methods=["POST"])
@@ -970,10 +976,10 @@ def poll_code():
 
     pending = session.get("pending_invite")
     if not pending:
-        return jsonify({"success": False, "message": "没有待处理的邀请"})
+        return jsonify({"success": False, "found": False, "message": "没有待处理的邀请"})
 
     email = pending["email"]
-    code, error = get_verification_code(email, max_retries=1, interval=0)
+    code, error, email_time = get_verification_code(email, max_retries=1, interval=0)
 
     if code:
         return jsonify({
@@ -981,13 +987,14 @@ def poll_code():
             "found": True,
             "code": code,
             "email": email,
-            "password": pending["password"]
+            "password": pending["password"],
+            "email_time": email_time  # 返回邮件时间
         })
     else:
         return jsonify({
             "success": True,
             "found": False,
-            "message": "验证码尚未到达，请继续等待"
+            "message": "暂无验证码邮件"
         })
 
 
@@ -1140,6 +1147,33 @@ def admin_pending_invites():
         "items": items,
         "total": total
     })
+
+
+@app.route("/api/admin/members")
+def admin_members():
+    """获取 ChatGPT Team 空间成员列表"""
+    if not session.get("admin_logged_in"):
+        return jsonify({"success": False, "message": "未授权"}), 401
+
+    url = f"https://chatgpt.com/backend-api/accounts/{ACCOUNT_ID}/users?offset=0&limit=100&query="
+    headers = build_base_headers()
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            log_info("Admin", "查询空间成员", total=data.get("total", 0))
+            return jsonify({
+                "success": True,
+                "items": data.get("items", []),
+                "total": data.get("total", 0)
+            })
+        else:
+            log_error("Admin", "获取空间成员失败", status=response.status_code)
+            return jsonify({"success": False, "message": f"API错误: {response.status_code}"}), 500
+    except Exception as e:
+        log_error("Admin", "获取空间成员异常", str(e))
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 # ==================== 健康检查 ====================

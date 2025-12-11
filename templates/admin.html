@@ -192,6 +192,51 @@
             </div>
         </div>
 
+        <!-- Team Members Section -->
+        <div class="glass-card rounded-2xl overflow-hidden shadow-2xl mb-8">
+            <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <h2 class="font-semibold text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-users text-blue-500 text-sm"></i>
+                    空间成员
+                    <span id="members-count" class="ml-2 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium border border-blue-500/10">-</span>
+                </h2>
+                <button onclick="loadMembers()"
+                    class="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-500/10">
+                    <i class="fa-solid fa-refresh text-xs"></i> 刷新
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-xs uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-white/[0.01]">
+                            <th class="p-4 font-semibold">用户名</th>
+                            <th class="p-4 font-semibold">邮箱地址</th>
+                            <th class="p-4 font-semibold">角色</th>
+                            <th class="p-4 font-semibold">加入时间</th>
+                            <th class="p-4 font-semibold">状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="members-body" class="text-[13px] text-zinc-300">
+                        <tr>
+                            <td colspan="5" class="p-8 text-center text-zinc-500">
+                                <i class="fa-solid fa-spinner animate-spin mr-2"></i> 正在加载...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State for Members -->
+            <div id="members-empty" class="hidden py-12 text-center">
+                <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
+                    <i class="fa-solid fa-user-slash text-xl text-zinc-500"></i>
+                </div>
+                <h3 class="text-white font-medium mb-1">暂无成员</h3>
+                <p class="text-sm text-zinc-500">空间内还没有成员</p>
+            </div>
+        </div>
+
         <!-- Records Table -->
         <div class="glass-card rounded-2xl overflow-hidden shadow-2xl">
             <div class="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
@@ -322,6 +367,64 @@
                 });
         }
 
+        function loadMembers() {
+            fetch('/api/admin/members')
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.getElementById('members-body');
+                    const emptyState = document.getElementById('members-empty');
+                    const countBadge = document.getElementById('members-count');
+
+                    if (!data.success || !data.items || data.items.length === 0) {
+                        tbody.innerHTML = '';
+                        emptyState.classList.remove('hidden');
+                        countBadge.textContent = '0';
+                        return;
+                    }
+
+                    emptyState.classList.add('hidden');
+                    countBadge.textContent = data.total;
+
+                    tbody.innerHTML = data.items.map(item => {
+                        const roleClass = item.role === 'account-owner'
+                            ? 'bg-purple-500/10 text-purple-400 border-purple-500/10'
+                            : 'bg-blue-500/10 text-blue-400 border-blue-500/10';
+                        const roleText = item.role === 'account-owner' ? '管理员' : '成员';
+                        const statusClass = item.deactivated_time
+                            ? 'bg-red-500/10 text-red-400 border-red-500/10'
+                            : 'bg-green-500/10 text-green-400 border-green-500/10';
+                        const statusText = item.deactivated_time ? '已停用' : '活跃';
+
+                        return `
+                            <tr class="table-row border-b border-white/5 last:border-0">
+                                <td class="p-4">
+                                    <div class="text-white font-medium">${item.name || '-'}</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="font-mono text-sm text-zinc-300 select-all">${item.email}</div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-2 py-0.5 rounded text-[11px] border ${roleClass}">${roleText}</span>
+                                </td>
+                                <td class="p-4 text-[12px] text-zinc-400">${formatDateTime(item.created_time)}</td>
+                                <td class="p-4">
+                                    <span class="px-2 py-0.5 rounded text-[11px] border ${statusClass}">${statusText}</span>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                })
+                .catch(() => {
+                    document.getElementById('members-body').innerHTML = `
+                        <tr>
+                            <td colspan="5" class="p-8 text-center text-red-400">
+                                <i class="fa-solid fa-exclamation-circle mr-2"></i> 加载失败
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+
         function loadRecords() {
             fetch('/api/admin/records')
                 .then(r => r.json())
@@ -365,6 +468,7 @@
         // 初始化加载
         loadStats();
         loadPendingInvites();
+        loadMembers();
         loadRecords();
 
         // 定时刷新

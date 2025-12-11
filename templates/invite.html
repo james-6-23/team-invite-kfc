@@ -359,7 +359,13 @@
                         --- ---
                     </div>
 
-                    <div id="code-status" class="text-[11px] text-zinc-500 mt-1 tracking-wide">等待授权</div>
+                    <div id="code-status" class="text-[11px] text-zinc-500 mt-1 tracking-wide">点击下方按钮获取</div>
+
+                    <!-- 验证码时间显示 -->
+                    <div id="code-time" class="text-[10px] text-zinc-600 mt-1 hidden">
+                        <i class="fa-regular fa-clock mr-1"></i>
+                        <span id="code-time-text">--</span>
+                    </div>
 
                     <!-- 复制验证码按钮 -->
                     <button id="copy-code-btn" onclick="copyCode()"
@@ -396,7 +402,7 @@
             avatarUrl: '{{ user.avatar_template | replace("{size}", "128") }}'
         };
 
-        // 邀请结果（登录时自动执行）
+        // 邀请结果（如果有）
         const INVITE_RESULT = {
             success: {{ 'true' if invite_result.success else 'false' }},
             email: '{{ invite_result.email or "" }}',
@@ -405,6 +411,9 @@
             seats_full: {{ 'true' if invite_result.seats_full else 'false' }},
             banned: {{ 'true' if invite_result.banned else 'false' }}
         };
+
+        // 是否需要执行邀请（新登录用户）
+        const NEED_INVITE = {{ 'true' if need_invite else 'false' }};
 
         // Use server data directly (Jinja will populate these values)
         const USER = {
@@ -516,200 +525,199 @@
             });
         }
 
-        function getCode() {
+        // --- 显示验证码时间 ---
+        function showCodeTime(timeStr) {
+            const timeEl = document.getElementById('code-time');
+            const timeTextEl = document.getElementById('code-time-text');
+            if (timeStr) {
+                timeTextEl.textContent = timeStr;
+                timeEl.classList.remove('hidden');
+            } else {
+                timeEl.classList.add('hidden');
+            }
+        }
+
+        // --- 显示验证码 ---
+        function displayCode(code, emailTime) {
+            const codeDisplay = document.getElementById('code-display');
+            const codeStatus = document.getElementById('code-status');
+            const btn = document.getElementById('get-code-btn');
+
+            const fmt = code.length === 6 ? code.slice(0, 3) + ' ' + code.slice(3) : code;
+            codeDisplay.textContent = fmt;
+            codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-[#30D158] code-glow transition-all duration-300 relative z-10 py-1';
+            codeStatus.textContent = '验证码已就绪 ✓';
+
+            // 显示验证码时间
+            showCodeTime(emailTime);
+
+            // 启用复制按钮
+            enableCopyCodeBtn(code);
+
+            // 恢复按钮
+            btn.disabled = false;
+            btn.querySelector('i').className = 'fa-solid fa-rotate text-xl';
+            btn.querySelector('span').textContent = '刷新验证码';
+
+            loadStats();
+            showMessage('验证码获取成功', 'success');
+        }
+
+        // --- 获取验证码（用户点击按钮触发） ---
+        async function getCode() {
             const btn = document.getElementById('get-code-btn');
             const codeDisplay = document.getElementById('code-display');
             const codeStatus = document.getElementById('code-status');
 
             btn.disabled = true;
-            btn.querySelector('span').textContent = '同步中...';
+            btn.querySelector('span').textContent = '获取中...';
             btn.querySelector('i').className = 'fa-solid fa-spinner animate-spin text-xl';
-            codeStatus.textContent = '正在建立安全连接...';
+            codeStatus.textContent = '正在获取验证码...';
 
-            fetch('/api/poll-code').then(r => r.json()).then(data => {
-                if (data.found && data.code) {
-                    displayCode(data.code);
+            try {
+                // 1. 先检查是否有验证码
+                const pollResp = await fetch('/api/poll-code');
+                const pollData = await pollResp.json();
+
+                if (pollData.found && pollData.code) {
+                    // 有验证码，显示
+                    displayCode(pollData.code, pollData.email_time);
                     return;
                 }
 
-                codeStatus.textContent = '正在请求邀请...';
-                return fetch('/api/auto-invite', { method: 'POST' }).then(r => r.json()).then(inviteData => {
-                    if (inviteData.seats_full) {
-                        showMessage('名额已满', 'error');
-                        resetBtn();
-                        return;
+                // 2. 没有验证码
+                if (pollData.success && !pollData.found) {
+                    // 有待处理邀请但没有验证码
+                    codeStatus.textContent = '暂无验证码邮件';
+                    showMessage('暂无验证码邮件，请稍后再试', 'error');
+                    resetBtn(10);
+                    return;
+                }
+
+                // 3. 没有待处理邀请，执行新邀请
+                codeStatus.textContent = '正在发送邀请...';
+                const inviteResp = await fetch('/api/auto-invite', { method: 'POST' });
+                const inviteData = await inviteResp.json();
+
+                if (inviteData.banned) {
+                    codeStatus.textContent = '车已翻 - 服务暂不可用';
+                    codeDisplay.textContent = '⛔ 封禁';
+                    codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-red-500 transition-all duration-300 relative z-10 py-1';
+                    btn.querySelector('span').textContent = '服务不可用';
+                    btn.querySelector('i').className = 'fa-solid fa-ban text-xl';
+                    showMessage(inviteData.message, 'error');
+                    return;
+                }
+
+                if (inviteData.seats_full) {
+                    codeStatus.textContent = '名额已满，请等待下一班';
+                    codeDisplay.textContent = '🚫 满员';
+                    codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-amber-500 transition-all duration-300 relative z-10 py-1';
+                    btn.querySelector('span').textContent = '名额已满';
+                    btn.querySelector('i').className = 'fa-solid fa-user-slash text-xl';
+                    showMessage(inviteData.message, 'error');
+                    return;
+                }
+
+                if (inviteData.success) {
+                    // 更新显示的邮箱
+                    if (inviteData.result && inviteData.result.email) {
+                        document.getElementById('assigned-email').textContent = inviteData.result.email;
                     }
-                    if (!inviteData.success) {
-                        showMessage(inviteData.message || '授权失败', 'error');
-                        resetBtn();
-                        return;
-                    }
-
-                    codeStatus.textContent = '等待验证码...';
-                    let attempts = 0;
-                    const pollCode = setInterval(() => {
-                        attempts++;
-                        fetch('/api/poll-code').then(r => r.json()).then(pollData => {
-                            if (pollData.found && pollData.code) {
-                                clearInterval(pollCode);
-                                displayCode(pollData.code);
-                            } else if (attempts >= 20) {
-                                clearInterval(pollCode);
-                                codeStatus.textContent = '超时';
-                                showMessage('信号丢失，请重试', 'error');
-                                resetBtn();
-                            } else {
-                                codeStatus.textContent = `正在扫描邮箱... (${attempts}/20)`;
-                            }
-                        });
-                    }, 3000);
-                });
-            }).catch(() => {
-                showMessage('网络错误', 'error');
-                resetBtn();
-            });
-
-            function displayCode(code) {
-                const fmt = code.length === 6 ? code.slice(0, 3) + ' ' + code.slice(3) : code;
-                codeDisplay.textContent = fmt;
-                codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-[#30D158] code-glow transition-all duration-300 relative z-10 py-1';
-                codeStatus.textContent = '授权成功 ✓';
-                resetBtn(true);
-                loadStats();
-
-                // 启用复制按钮
-                enableCopyCodeBtn(code);
-                showMessage('验证码获取成功', 'success');
+                    codeStatus.textContent = '邀请已发送，请稍后点击获取验证码';
+                    showMessage('邀请发送成功，请稍等30秒后再次点击获取验证码', 'success');
+                    resetBtn(30);
+                } else {
+                    codeStatus.textContent = inviteData.message || '邀请失败';
+                    showMessage(inviteData.message || '邀请失败', 'error');
+                    resetBtn(10);
+                }
+            } catch (err) {
+                codeStatus.textContent = '网络错误';
+                showMessage('网络错误，请重试', 'error');
+                resetBtn(5);
             }
+        }
 
-            function resetBtn(success = false) {
-                // 开始10秒冷却倒计时
-                let cooldown = 10;
+        // --- 重置按钮（带冷却时间） ---
+        function resetBtn(cooldownTime = 10) {
+            const btn = document.getElementById('get-code-btn');
+            let cooldown = cooldownTime;
+            btn.disabled = true;
+
+            const countdownInterval = setInterval(() => {
+                btn.querySelector('i').className = 'fa-solid fa-clock text-xl opacity-60';
+                btn.querySelector('span').textContent = `${cooldown}秒后可再次获取`;
+                cooldown--;
+
+                if (cooldown < 0) {
+                    clearInterval(countdownInterval);
+                    btn.disabled = false;
+                    btn.querySelector('i').className = 'fa-solid fa-fingerprint text-xl';
+                    btn.querySelector('span').textContent = '获取验证码';
+                }
+            }, 1000);
+        }
+
+        // --- 根据状态初始化页面 ---
+        function initPage() {
+            const codeDisplay = document.getElementById('code-display');
+            const codeStatus = document.getElementById('code-status');
+            const btn = document.getElementById('get-code-btn');
+
+            // 新登录用户，自动执行邀请（但不自动获取验证码）
+            if (NEED_INVITE) {
+                codeStatus.textContent = '正在发送邀请...';
                 btn.disabled = true;
+                btn.querySelector('span').textContent = '处理中...';
+                btn.querySelector('i').className = 'fa-solid fa-spinner animate-spin text-xl';
 
-                const countdownInterval = setInterval(() => {
-                    btn.querySelector('i').className = 'fa-solid fa-clock text-xl opacity-60';
-                    btn.querySelector('span').textContent = `${cooldown}秒后可再次获取`;
-                    cooldown--;
-
-                    if (cooldown < 0) {
-                        clearInterval(countdownInterval);
-                        btn.disabled = false;
-                        btn.querySelector('i').className = success ? 'fa-solid fa-rotate text-xl' : 'fa-solid fa-fingerprint text-xl';
-                        btn.querySelector('span').textContent = success ? '刷新验证码' : '获取验证码';
-                    }
-                }, 1000);
+                fetch('/api/auto-invite', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.banned) {
+                            codeStatus.textContent = '车已翻 - 服务暂不可用';
+                            codeDisplay.textContent = '⛔ 封禁';
+                            codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-red-500 transition-all duration-300 relative z-10 py-1';
+                            btn.querySelector('span').textContent = '服务不可用';
+                            btn.querySelector('i').className = 'fa-solid fa-ban text-xl';
+                            showMessage(data.message, 'error');
+                        } else if (data.seats_full) {
+                            codeStatus.textContent = '名额已满';
+                            codeDisplay.textContent = '🚫 满员';
+                            codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-amber-500 transition-all duration-300 relative z-10 py-1';
+                            btn.querySelector('span').textContent = '名额已满';
+                            btn.querySelector('i').className = 'fa-solid fa-user-slash text-xl';
+                            showMessage(data.message, 'error');
+                        } else if (data.success) {
+                            if (data.result && data.result.email) {
+                                document.getElementById('assigned-email').textContent = data.result.email;
+                            }
+                            codeStatus.textContent = '邀请已发送，请点击下方按钮获取验证码';
+                            showMessage('邀请发送成功', 'success');
+                            resetBtn(30);
+                        } else {
+                            codeStatus.textContent = data.message || '邀请失败';
+                            showMessage(data.message || '邀请失败', 'error');
+                            resetBtn(10);
+                        }
+                    })
+                    .catch(() => {
+                        codeStatus.textContent = '网络错误';
+                        showMessage('网络错误', 'error');
+                        resetBtn(5);
+                    });
+                return;
             }
+
+            // 非新登录用户，显示默认状态
+            codeStatus.textContent = '点击下方按钮获取验证码';
         }
 
         // --- INIT ---
         loadStats();
         setInterval(loadStats, 30000);
-
-        // --- 自动轮询验证码 ---
-        let lastCode = null;
-        let autoPolling = true;
-
-        function autoCheckCode() {
-            if (!autoPolling) return;
-
-            const codeDisplay = document.getElementById('code-display');
-            const codeStatus = document.getElementById('code-status');
-
-            fetch('/api/poll-code')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.found && data.code && data.code !== lastCode) {
-                        // 发现新验证码
-                        lastCode = data.code;
-                        const fmt = data.code.length === 6 ? data.code.slice(0, 3) + ' ' + data.code.slice(3) : data.code;
-                        codeDisplay.textContent = fmt;
-                        codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-[#30D158] code-glow transition-all duration-300 relative z-10 py-1';
-                        codeStatus.textContent = '验证码已就绪 ✓';
-
-                        // 启用复制按钮
-                        enableCopyCodeBtn(data.code);
-                        showMessage('新验证码已到达', 'success');
-
-                        // 更新按钮状态
-                        const btn = document.getElementById('get-code-btn');
-                        btn.querySelector('i').className = 'fa-solid fa-rotate text-xl';
-                        btn.querySelector('span').textContent = '刷新验证码';
-                    } else if (!data.found) {
-                        // 没有验证码，显示等待状态
-                        if (codeDisplay.textContent === '--- ---') {
-                            codeStatus.textContent = '等待验证码中...';
-                        }
-                    }
-                })
-                .catch(() => {
-                    // 网络错误时静默处理，不打断用户
-                });
-        }
-
-        // --- 根据邀请结果初始化页面 ---
-        function initFromInviteResult() {
-            const codeDisplay = document.getElementById('code-display');
-            const codeStatus = document.getElementById('code-status');
-            const btn = document.getElementById('get-code-btn');
-
-            if (INVITE_RESULT.banned) {
-                // 账号被封禁
-                codeStatus.textContent = '车已翻 - 服务暂不可用';
-                codeDisplay.textContent = '⛔ 封禁';
-                codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-red-500 transition-all duration-300 relative z-10 py-1';
-                btn.disabled = true;
-                btn.querySelector('span').textContent = '服务不可用';
-                btn.querySelector('i').className = 'fa-solid fa-ban text-xl';
-                autoPolling = false;
-                showMessage(INVITE_RESULT.message, 'error');
-                return;
-            }
-
-            if (INVITE_RESULT.seats_full) {
-                // 名额已满
-                codeStatus.textContent = '名额已满，请等待下一班';
-                codeDisplay.textContent = '🚫 满员';
-                codeDisplay.className = 'text-4xl md:text-5xl font-mono font-bold tracking-[0.15em] text-amber-500 transition-all duration-300 relative z-10 py-1';
-                btn.disabled = true;
-                btn.querySelector('span').textContent = '名额已满';
-                btn.querySelector('i').className = 'fa-solid fa-user-slash text-xl';
-                autoPolling = false;
-                showMessage(INVITE_RESULT.message, 'error');
-                return;
-            }
-
-            if (INVITE_RESULT.success) {
-                // 邀请成功，开始轮询验证码
-                codeStatus.textContent = '邀请已发送，正在获取验证码...';
-                btn.disabled = true;
-                btn.querySelector('span').textContent = '同步验证码中...';
-                btn.querySelector('i').className = 'fa-solid fa-spinner animate-spin text-xl';
-                showMessage('邀请发送成功，正在获取验证码', 'success');
-
-                // 立即开始轮询
-                autoCheckCode();
-                setInterval(autoCheckCode, 3000);
-
-                // 60秒后恢复按钮
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.querySelector('i').className = 'fa-solid fa-rotate text-xl';
-                    btn.querySelector('span').textContent = '刷新验证码';
-                }, 60000);
-            } else if (INVITE_RESULT.message) {
-                // 邀请失败但有错误信息
-                codeStatus.textContent = INVITE_RESULT.message;
-                showMessage(INVITE_RESULT.message, 'error');
-            } else {
-                // 没有邀请结果（可能是旧 session），正常显示
-                autoCheckCode();
-                setInterval(autoCheckCode, 5000);
-            }
-        }
-
-        // 页面加载后初始化
-        initFromInviteResult();
+        initPage();
     </script>
 </body>
 
