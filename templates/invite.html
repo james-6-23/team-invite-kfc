@@ -205,6 +205,59 @@
             background: linear-gradient(135deg, rgba(10, 132, 255, 0.2) 0%, rgba(94, 92, 230, 0.2) 100%);
             border: 1px solid rgba(10, 132, 255, 0.3);
         }
+
+        /* 复制按钮动画 */
+        .copy-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .copy-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+
+        .copy-btn i {
+            transition: all 0.2s ease;
+        }
+
+        /* Toast 动画 */
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100px) scale(0.8);
+            }
+        }
+
+        .toast-enter {
+            animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .toast-exit {
+            animation: toastSlideOut 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+        }
+
+        /* 复制验证码按钮 */
+        #copy-code-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
     </style>
 </head>
 
@@ -327,7 +380,7 @@
                                 shane@kyx03.de
                             </div>
                             <button onclick="copyEmail()"
-                                class="w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center text-zinc-400 hover:text-blue-400 transition-all shrink-0">
+                                class="copy-btn w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center text-zinc-400 hover:text-blue-400 shrink-0">
                                 <i id="copy-icon" class="fa-regular fa-copy text-sm"></i>
                             </button>
                         </div>
@@ -340,7 +393,7 @@
                             <div class="font-mono text-sm md:text-base text-zinc-200 tracking-wide"
                                 id="assigned-password">kfcvivo50</div>
                             <button onclick="copyPassword()"
-                                class="w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center text-zinc-400 hover:text-blue-400 transition-all shrink-0">
+                                class="copy-btn w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 flex items-center justify-center text-zinc-400 hover:text-blue-400 shrink-0">
                                 <i id="copy-pwd-icon" class="fa-regular fa-copy text-sm"></i>
                             </button>
                         </div>
@@ -437,14 +490,38 @@
         document.getElementById('user-id-footer').textContent = `用户: ${USER.username}`;
 
         // --- UTILITY FUNCTIONS ---
-        function copyEmail() { copyToClip(email, 'copy-icon'); }
-        function copyPassword() { copyToClip(password, 'copy-pwd-icon'); }
+        function copyEmail() {
+            const emailText = document.getElementById('assigned-email').textContent.trim();
+            copyToClip(emailText, 'copy-icon', '邮箱已复制');
+        }
 
-        function copyToClip(text, iconId) {
+        function copyPassword() {
+            const pwdText = document.getElementById('assigned-password').textContent.trim();
+            copyToClip(pwdText, 'copy-pwd-icon', '密码已复制');
+        }
+
+        function copyToClip(text, iconId, toastMsg) {
+            if (!text) {
+                showMessage('没有可复制的内容', 'error');
+                return;
+            }
             navigator.clipboard.writeText(text).then(() => {
                 const icon = document.getElementById(iconId);
-                icon.className = 'fa-solid fa-check text-green-400';
-                setTimeout(() => { icon.className = 'fa-regular fa-copy text-sm'; }, 1500);
+                const btn = icon.parentElement;
+
+                // 图标动画
+                icon.className = 'fa-solid fa-check text-green-400 scale-125';
+                btn.classList.add('ring-2', 'ring-green-500/50', 'bg-green-500/20');
+
+                // 显示 toast
+                showMessage(toastMsg || '已复制到剪贴板', 'success');
+
+                setTimeout(() => {
+                    icon.className = 'fa-regular fa-copy text-sm';
+                    btn.classList.remove('ring-2', 'ring-green-500/50', 'bg-green-500/20');
+                }, 1500);
+            }).catch(() => {
+                showMessage('复制失败，请手动复制', 'error');
             });
         }
 
@@ -452,12 +529,28 @@
         let currentCode = null;
 
         function copyCode() {
-            if (!currentCode) return;
+            if (!currentCode) {
+                showMessage('请先获取验证码', 'error');
+                return;
+            }
             navigator.clipboard.writeText(currentCode).then(() => {
                 const icon = document.getElementById('copy-code-icon');
-                icon.className = 'fa-solid fa-check text-green-400';
-                showMessage('验证码已复制 📋', 'success');
-                setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 1500);
+                const btn = document.getElementById('copy-code-btn');
+
+                // 动画效果
+                icon.className = 'fa-solid fa-check text-green-400 scale-125';
+                btn.classList.add('ring-2', 'ring-green-500/50', 'bg-green-500/20', 'border-green-500/50');
+                btn.querySelector('span').textContent = '已复制!';
+
+                showMessage('验证码已复制', 'success');
+
+                setTimeout(() => {
+                    icon.className = 'fa-regular fa-copy';
+                    btn.classList.remove('ring-2', 'ring-green-500/50', 'bg-green-500/20', 'border-green-500/50');
+                    btn.querySelector('span').textContent = '复制验证码';
+                }, 1500);
+            }).catch(() => {
+                showMessage('复制失败，请手动复制', 'error');
             });
         }
 
@@ -466,47 +559,44 @@
             const btn = document.getElementById('copy-code-btn');
             btn.disabled = false;
             btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btn.classList.add('hover:scale-105', 'active:scale-95');
         }
 
         function showMessage(text, type) {
-            // 创建或获取 toast 容器
-            let toast = document.getElementById('global-toast');
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.id = 'global-toast';
-                document.body.appendChild(toast);
+            // 移除现有的 toast（如果存在）
+            const existingToast = document.getElementById('global-toast');
+            if (existingToast) {
+                existingToast.remove();
             }
 
-            // 设置样式和内容
-            const bgColor = type === 'error' ? 'bg-red-500/90' : 'bg-green-500/90';
-            const icon = type === 'error' ? 'fa-circle-xmark' : 'fa-circle-check';
+            // 创建新的 toast
+            const toast = document.createElement('div');
+            toast.id = 'global-toast';
 
-            toast.className = `fixed top-6 right-6 z-[9999] px-5 py-3.5 rounded-2xl ${bgColor} backdrop-blur-xl shadow-2xl text-white text-sm font-medium flex items-center gap-3 animate-slide-in`;
-            toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${text}</span>`;
-            toast.style.cssText = 'animation: slideIn 0.3s ease-out; transform-origin: top right;';
+            // 根据类型设置样式
+            const isError = type === 'error';
+            const bgColor = isError
+                ? 'bg-gradient-to-r from-red-500/95 to-red-600/95'
+                : 'bg-gradient-to-r from-green-500/95 to-emerald-600/95';
+            const icon = isError ? 'fa-circle-xmark' : 'fa-circle-check';
+            const ringColor = isError ? 'ring-red-400/30' : 'ring-green-400/30';
 
-            // 添加动画样式（如果还没有）
-            if (!document.getElementById('toast-style')) {
-                const style = document.createElement('style');
-                style.id = 'toast-style';
-                style.textContent = `
-                    @keyframes slideIn {
-                        from { opacity: 0; transform: translateX(100px) scale(0.8); }
-                        to { opacity: 1; transform: translateX(0) scale(1); }
-                    }
-                    @keyframes slideOut {
-                        from { opacity: 1; transform: translateX(0) scale(1); }
-                        to { opacity: 0; transform: translateX(100px) scale(0.8); }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
+            toast.className = `fixed top-6 right-6 z-[9999] px-5 py-3.5 rounded-2xl ${bgColor} backdrop-blur-xl shadow-2xl text-white text-sm font-medium flex items-center gap-3 toast-enter ring-1 ${ringColor}`;
+            toast.innerHTML = `
+                <div class="w-6 h-6 rounded-full ${isError ? 'bg-red-400/30' : 'bg-green-400/30'} flex items-center justify-center">
+                    <i class="fa-solid ${icon} text-xs"></i>
+                </div>
+                <span class="font-medium">${text}</span>
+            `;
 
-            // 3秒后消失
+            document.body.appendChild(toast);
+
+            // 2.5秒后消失
             setTimeout(() => {
-                toast.style.animation = 'slideOut 0.3s ease-in forwards';
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
                 setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            }, 2500);
         }
 
         function loadStats() {
