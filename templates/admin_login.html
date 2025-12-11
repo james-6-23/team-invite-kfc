@@ -202,31 +202,6 @@
         </div>
     </div>
 
-    <!-- Preview Mode Handler -->
-    <script>
-        // 检测是否为预览模式（直接打开 HTML 文件）
-        const isPreview = window.location.protocol === 'file:';
-
-        if (isPreview) {
-            // 移除所有包含 Jinja2 模板语法的文本节点
-            document.querySelectorAll('*').forEach(el => {
-                if (el.childNodes.length > 0) {
-                    el.childNodes.forEach(node => {
-                        if (node.nodeType === Node.TEXT_NODE) {
-                            const text = node.textContent;
-                            if (text.includes('{%') || text.includes('{{')) {
-                                node.textContent = '';
-                            }
-                        }
-                    });
-                }
-            });
-
-            // 隐藏错误提示区域（预览模式下不需要显示）
-            const errorDivs = document.querySelectorAll('.bg-red-500\\/10');
-            errorDivs.forEach(div => div.remove());
-        }
-    </script>
 </body>
 
 </html>

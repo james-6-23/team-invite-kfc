@@ -30,7 +30,8 @@ class No404Filter(logging.Filter):
 logging.getLogger("werkzeug").addFilter(No404Filter())
 
 # ChatGPT Team 配置
-AUTHORIZATION_TOKEN = os.getenv("AUTHORIZATION_TOKEN")
+_token = os.getenv("AUTHORIZATION_TOKEN", "")
+AUTHORIZATION_TOKEN = _token if _token.startswith("Bearer ") else f"Bearer {_token}"
 ACCOUNT_ID = os.getenv("ACCOUNT_ID")
 
 # Cloudflare Turnstile (保留兼容)

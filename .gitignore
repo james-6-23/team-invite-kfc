@@ -3,3 +3,4 @@
 test_add_user.py
 test_email_list.py
 test_invite.py
+auto_invite.py

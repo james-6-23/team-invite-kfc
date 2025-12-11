@@ -350,43 +350,6 @@
     </div>
 
     <script>
-        // Mock Data Support for Preview
-        const isPreview = window.location.protocol === 'file:' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-
-        function mockFetch(url) {
-            return new Promise(resolve => {
-                setTimeout(() => {
-                    if (url.includes('/stats')) {
-                        resolve({
-                            json: () => Promise.resolve({
-                                success: true,
-                                updated_at: '2025-12-11 06:03:40',
-                                data: {
-                                    seats_entitled: 1000,
-                                    seats_in_use: 974,
-                                    pending_invites: 25,
-                                    plan_type: 'team',
-                                    active_start: '2025-12-01T17:02:53Z',
-                                    active_until: '2026-01-01T17:02:53Z',
-                                    billing_period: 'monthly',
-                                    billing_currency: 'usd',
-                                    will_renew: true,
-                                    is_delinquent: false
-                                }
-                            })
-                        });
-                    }
-                }, 800);
-            });
-        }
-
-        const originalFetch = window.fetch;
-        window.fetch = function (url, options) {
-            return originalFetch(url, options).catch(() => {
-                return mockFetch(url);
-            });
-        };
-
         function formatDate(dateInput) {
             if (!dateInput) return '--';
             // Handle both ISO string and Unix timestamp

@@ -229,7 +229,7 @@
                 </div>
             </div>
 
-            <!-- User Profile (Unified - JS will handle preview mode) -->
+            <!-- User Profile -->
             <div class="flex flex-col items-center text-center my-auto py-6">
                 <!-- Avatar Container -->
                 <div class="relative mb-6 group-hover:scale-105 transition-transform duration-500">
@@ -389,7 +389,6 @@
     <!-- JS Logic -->
     <script>
         // --- CONFIGURATION ---
-        // Jinja will replace these if running on server; otherwise use defaults for preview
         const SERVER_DATA = {
             username: '{{ user.username | lower }}',
             name: '{{ user.name or user.username }}',
@@ -414,25 +413,6 @@
         document.getElementById('user-trust-level').textContent = `等级 ${USER.trustLevel}`;
         document.getElementById('assigned-email').textContent = email;
         document.getElementById('user-id-footer').textContent = `用户: ${USER.username}`;
-
-        // --- MOCK FETCH FOR PREVIEW ---
-        if (isPreview) {
-            console.log('🎨 Preview mode activated');
-            const originalFetch = window.fetch;
-            window.fetch = function (url) {
-                return new Promise(resolve => {
-                    setTimeout(() => {
-                        if (url.includes('/stats')) {
-                            resolve({ json: () => Promise.resolve({ success: true, data: { seats_entitled: 100, seats_in_use: 42, pending_invites: 5 } }) });
-                        } else if (url.includes('/api/poll-code') || url.includes('/api/auto-invite')) {
-                            resolve({ json: () => Promise.resolve({ found: true, success: true, code: Math.floor(100000 + Math.random() * 900000).toString() }) });
-                        } else {
-                            return originalFetch(url);
-                        }
-                    }, 800);
-                });
-            };
-        }
 
         // --- UTILITY FUNCTIONS ---
         function copyEmail() { copyToClip(email, 'copy-icon'); }

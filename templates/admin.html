@@ -198,38 +198,6 @@
     </div>
 
     <script>
-        // Mock Data Support
-        if (window.location.protocol === 'file:') {
-            window.fetch = function (url) {
-                return new Promise(resolve => {
-                    setTimeout(() => {
-                        if (url.includes('/api/admin/stats')) {
-                            resolve({
-                                json: () => Promise.resolve({
-                                    success: true,
-                                    stats: { total_invites: 1250, success_count: 1200, fail_count: 50 }
-                                })
-                            });
-                        } else if (url.includes('/stats')) {
-                            resolve({
-                                json: () => Promise.resolve({ success: true, data: { seats_entitled: 100, seats_in_use: 42, pending_invites: 5 } })
-                            });
-                        } else if (url.includes('/api/admin/records')) {
-                            resolve({
-                                json: () => Promise.resolve({
-                                    success: true,
-                                    records: [
-                                        { id: 1250, linuxdo_name: 'Shane User', linuxdo_username: 'shane', trust_level: 3, email: 'shane@kyx03.de', password: '***', success: true, created_at: '2023-12-11 10:30', ip: '192.168.1.1' },
-                                        { id: 1249, linuxdo_name: 'Test Account', linuxdo_username: 'test', trust_level: 2, email: 'test@kyx03.de', password: '***', success: false, created_at: '2023-12-11 09:45', ip: '10.0.0.1' },
-                                    ]
-                                })
-                            });
-                        }
-                    }, 600);
-                });
-            };
-        }
-
         function loadStats() {
             fetch('/api/admin/stats')
                 .then(r => r.json())
