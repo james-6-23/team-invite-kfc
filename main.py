@@ -129,7 +129,7 @@ redis_pool = redis.ConnectionPool(
     password=REDIS_PASSWORD or None,
     db=REDIS_DB,
     decode_responses=True,
-    max_connections=10,
+    max_connections=50,  # 增加连接数以支持高并发
     socket_connect_timeout=5,
     socket_timeout=5,
     retry_on_timeout=True
@@ -152,12 +152,17 @@ INVITE_COUNTER_KEY = "team_invite:counter"
 INVITE_LOCK_KEY = "team_invite:lock"
 STATS_CACHE_KEY = "team_invite:stats_cache"
 PENDING_INVITES_CACHE_KEY = "team_invite:pending_invites"
+RATE_LIMIT_KEY = "team_invite:rate_limit"
 
 # 后台管理密码
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
 # 统一密码
 DEFAULT_PASSWORD = "kfcvivo50"
+
+# 限流配置
+RATE_LIMIT_MAX_REQUESTS = 5  # 每个 IP 每分钟最大请求数
+RATE_LIMIT_WINDOW = 60  # 限流窗口（秒）
 
 
 def get_client_ip_address():
@@ -166,6 +171,44 @@ def get_client_ip_address():
     if "X-Forwarded-For" in request.headers:
         return request.headers["X-Forwarded-For"].split(",")[0].strip()
     return request.remote_addr or "unknown"
+
+
+def check_rate_limit(identifier=None):
+    """检查请求限流
+
+    Args:
+        identifier: 限流标识，默认使用客户端 IP
+
+    Returns:
+        tuple: (is_allowed, remaining, reset_time)
+    """
+    if identifier is None:
+        identifier = get_client_ip_address()
+
+    key = f"{RATE_LIMIT_KEY}:{identifier}"
+
+    try:
+        # 使用 Redis pipeline 实现原子操作
+        pipe = redis_client.pipeline()
+        pipe.incr(key)
+        pipe.ttl(key)
+        results = pipe.execute()
+
+        current_count = results[0]
+        ttl = results[1]
+
+        # 如果是新 key，设置过期时间
+        if ttl == -1:
+            redis_client.expire(key, RATE_LIMIT_WINDOW)
+            ttl = RATE_LIMIT_WINDOW
+
+        remaining = max(0, RATE_LIMIT_MAX_REQUESTS - current_count)
+        is_allowed = current_count <= RATE_LIMIT_MAX_REQUESTS
+
+        return is_allowed, remaining, ttl
+    except Exception as e:
+        log_error("RateLimit", "限流检查失败", str(e))
+        return True, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW  # 出错时放行
 
 
 def build_base_headers():
@@ -639,8 +682,11 @@ def release_invite_lock(user_id, lock_token):
         pass  # 释放锁失败不影响主流程
 
 
-def acquire_global_invite_lock(timeout=10):
-    """获取全局邀请锁，用于检查和发送邀请的原子操作"""
+def acquire_global_invite_lock(timeout=30):
+    """获取全局邀请锁，用于检查和发送邀请的原子操作
+
+    timeout 设置为 30 秒，足够完成创建邮箱和发送邀请的操作
+    """
     lock_token = secrets.token_hex(8)
     acquired = redis_client.set(INVITE_LOCK_KEY, lock_token, nx=True, ex=timeout)
     return lock_token if acquired else None
@@ -659,6 +705,87 @@ def release_global_invite_lock(lock_token):
         redis_client.eval(lua_script, 1, INVITE_LOCK_KEY, lock_token)
     except Exception:
         pass
+
+
+# ==================== 并发信号量控制 ====================
+SEMAPHORE_KEY = "team_invite:semaphore"
+SEMAPHORE_MAX_CONCURRENT = 20  # 最大同时处理 20 个邀请请求
+SEMAPHORE_TIMEOUT = 60  # 信号量超时时间（秒）
+
+
+def acquire_semaphore(timeout=SEMAPHORE_TIMEOUT):
+    """获取信号量槽位，允许有限并发
+
+    使用 Redis Sorted Set 实现分布式信号量
+    - score: 过期时间戳
+    - member: 唯一令牌
+
+    Returns:
+        str: 令牌，用于释放；None 表示获取失败
+    """
+    token = secrets.token_hex(8)
+    now = time.time()
+    expire_at = now + timeout
+
+    try:
+        # Lua 脚本：原子性地清理过期项并尝试获取槽位
+        lua_script = """
+        local key = KEYS[1]
+        local max_concurrent = tonumber(ARGV[1])
+        local now = tonumber(ARGV[2])
+        local expire_at = tonumber(ARGV[3])
+        local token = ARGV[4]
+
+        -- 清理过期的槽位
+        redis.call('ZREMRANGEBYSCORE', key, '-inf', now)
+
+        -- 检查当前占用数
+        local current = redis.call('ZCARD', key)
+
+        if current < max_concurrent then
+            -- 有空闲槽位，获取
+            redis.call('ZADD', key, expire_at, token)
+            return 1
+        else
+            return 0
+        end
+        """
+        result = redis_client.eval(
+            lua_script, 1, SEMAPHORE_KEY,
+            SEMAPHORE_MAX_CONCURRENT, now, expire_at, token
+        )
+
+        if result == 1:
+            return token
+        return None
+    except Exception as e:
+        log_error("Semaphore", "获取信号量失败", str(e))
+        return None
+
+
+def release_semaphore(token):
+    """释放信号量槽位"""
+    try:
+        redis_client.zrem(SEMAPHORE_KEY, token)
+    except Exception:
+        pass
+
+
+def get_semaphore_status():
+    """获取信号量状态"""
+    try:
+        now = time.time()
+        # 清理过期项
+        redis_client.zremrangebyscore(SEMAPHORE_KEY, '-inf', now)
+        # 获取当前占用数
+        current = redis_client.zcard(SEMAPHORE_KEY)
+        return {
+            "current": current,
+            "max": SEMAPHORE_MAX_CONCURRENT,
+            "available": SEMAPHORE_MAX_CONCURRENT - current
+        }
+    except Exception:
+        return {"current": 0, "max": SEMAPHORE_MAX_CONCURRENT, "available": SEMAPHORE_MAX_CONCURRENT}
 
 
 def add_invite_record(user, email, password, success, message=""):
@@ -965,13 +1092,31 @@ def invite_page():
 
 @app.route("/api/auto-invite", methods=["POST"])
 def auto_invite():
-    """自动邀请 API - 执行完整的邀请流程（带并发控制）"""
+    """自动邀请 API - 执行完整的邀请流程（支持高并发）
+
+    并发控制策略：
+    1. IP 限流 - 防止单 IP 刷请求
+    2. 用户锁 - 防止同一用户重复提交
+    3. 信号量 - 限制同时处理的请求数（最多 20 个并发）
+    4. 短暂全局锁 - 仅在检查名额时使用，快速释放
+    """
     if not is_logged_in():
         return jsonify({"success": False, "message": "请先登录"}), 401
 
     user = get_current_user()
     user_id = user.get("id")
     client_ip = get_client_ip_address()
+
+    # 0. IP 限流检查
+    is_allowed, remaining, reset_time = check_rate_limit(client_ip)
+    if not is_allowed:
+        log_warn("RateLimit", "请求被限流", ip=client_ip, reset_in=reset_time)
+        return jsonify({
+            "success": False,
+            "message": f"请求过于频繁，请 {reset_time} 秒后再试",
+            "retry_after": reset_time,
+            "rate_limited": True
+        }), 429
 
     # 1. 获取用户锁（防止同一用户重复提交）
     user_lock = acquire_invite_lock(user_id, timeout=60)
@@ -982,105 +1127,122 @@ def auto_invite():
             "retry_after": 10
         }), 429
 
+    semaphore_token = None
     try:
-        # 2. 获取全局锁（防止并发超卖）
+        # 2. 获取信号量槽位（限制并发数，最多 20 个同时处理）
+        semaphore_token = acquire_semaphore(timeout=60)
+        if not semaphore_token:
+            sem_status = get_semaphore_status()
+            log_warn("Semaphore", "系统繁忙", current=sem_status["current"], max=sem_status["max"])
+            return jsonify({
+                "success": False,
+                "message": f"系统繁忙，当前有 {sem_status['current']} 个请求正在处理，请稍后再试",
+                "retry_after": 5,
+                "queue_full": True
+            }), 503
+
+        # 3. 短暂获取全局锁，仅用于检查名额（快速释放）
         global_lock = None
-        for _ in range(3):  # 重试3次获取全局锁
-            global_lock = acquire_global_invite_lock(timeout=15)
+        for _ in range(5):  # 重试5次获取全局锁
+            global_lock = acquire_global_invite_lock(timeout=5)  # 短超时
             if global_lock:
                 break
-            time.sleep(0.5)
-        
+            time.sleep(0.2)
+
         if not global_lock:
             return jsonify({
                 "success": False,
                 "message": "系统繁忙，请稍后再试",
-                "retry_after": 5
+                "retry_after": 3
             }), 503
 
+        # 4. 在锁内快速检查名额
         try:
-            # 3. 在锁内强制刷新检查名额（双重检查）
-            try:
-                available, stats_data = check_seats_available(force_refresh=True)
-            except TeamBannedException:
-                return jsonify({
-                    "success": False,
-                    "message": "车已翻 - Team 账号状态异常",
-                    "banned": True
-                }), 503
-
-            if not available:
-                return jsonify({
-                    "success": False,
-                    "message": "车门已焊死，名额已满",
-                    "seats_full": True,
-                    "stats": stats_data
-                })
-
-            # 4. 名额充足，开始邀请流程
-            email = generate_email_for_user(user["username"])
-            password = generate_password()
-
-            log_info("Invite", "开始自动邀请流程", username=user["username"], email=email, ip=client_ip)
-
-            result = {
-                "email": email,
-                "password": password,
-                "steps": []
-            }
-
-            # 步骤1: 创建邮箱用户
-            success, msg = create_email_user(email, password, EMAIL_ROLE)
-            result["steps"].append({
-                "step": 1,
-                "name": "创建邮箱用户",
-                "success": success,
-                "message": msg if not success else "成功"
-            })
-            if not success and "已存在" not in msg:
-                add_invite_record(user, email, password, False, f"创建邮箱失败: {msg}")
-                return jsonify({"success": False, "message": f"创建邮箱失败: {msg}", "result": result})
-
-            # 步骤2: 发送邀请
-            success, msg = send_chatgpt_invite(email)
-            result["steps"].append({
-                "step": 2,
-                "name": "发送 ChatGPT 邀请",
-                "success": success,
-                "message": "成功" if success else msg
-            })
-            if not success:
-                add_invite_record(user, email, password, False, f"发送邀请失败: {msg}")
-                return jsonify({"success": False, "message": f"发送邀请失败: {msg}", "result": result})
-
-            # 步骤3: 获取验证码 (异步方式，先返回，让前端轮询)
-            result["steps"].append({
-                "step": 3,
-                "name": "等待验证码",
-                "success": True,
-                "message": "邀请已发送，请稍后获取验证码"
-            })
-
-            session["pending_invite"] = {
-                "email": email,
-                "password": password,
-                "created_at": time.time()
-            }
-
-            # 记录成功邀请
-            add_invite_record(user, email, password, True, "邀请发送成功")
-
+            available, stats_data = check_seats_available(force_refresh=True)
+        except TeamBannedException:
+            release_global_invite_lock(global_lock)
             return jsonify({
-                "success": True,
-                "message": "邀请流程已启动",
-                "result": result,
-                "next": "poll_code"
+                "success": False,
+                "message": "车已翻 - Team 账号状态异常",
+                "banned": True
+            }), 503
+
+        # 立即释放全局锁，后续操作不需要锁
+        release_global_invite_lock(global_lock)
+        global_lock = None
+
+        if not available:
+            return jsonify({
+                "success": False,
+                "message": "车门已焊死，名额已满",
+                "seats_full": True,
+                "stats": stats_data
             })
-        finally:
-            # 释放全局锁
-            if global_lock:
-                release_global_invite_lock(global_lock)
+
+        # 5. 名额充足，开始邀请流程（无需全局锁，信号量已限制并发）
+        email = generate_email_for_user(user["username"])
+        password = generate_password()
+
+        log_info("Invite", "开始自动邀请流程", username=user["username"], email=email, ip=client_ip)
+
+        result = {
+            "email": email,
+            "password": password,
+            "steps": []
+        }
+
+        # 步骤1: 创建邮箱用户（并发执行，无锁）
+        success, msg = create_email_user(email, password, EMAIL_ROLE)
+        result["steps"].append({
+            "step": 1,
+            "name": "创建邮箱用户",
+            "success": success,
+            "message": msg if not success else "成功"
+        })
+        if not success and "已存在" not in msg:
+            add_invite_record(user, email, password, False, f"创建邮箱失败: {msg}")
+            return jsonify({"success": False, "message": f"创建邮箱失败: {msg}", "result": result})
+
+        # 步骤2: 发送邀请（并发执行，无锁）
+        success, msg = send_chatgpt_invite(email)
+        result["steps"].append({
+            "step": 2,
+            "name": "发送 ChatGPT 邀请",
+            "success": success,
+            "message": "成功" if success else msg
+        })
+        if not success:
+            add_invite_record(user, email, password, False, f"发送邀请失败: {msg}")
+            return jsonify({"success": False, "message": f"发送邀请失败: {msg}", "result": result})
+
+        # 步骤3: 获取验证码 (异步方式，先返回，让前端轮询)
+        result["steps"].append({
+            "step": 3,
+            "name": "等待验证码",
+            "success": True,
+            "message": "邀请已发送，请稍后获取验证码"
+        })
+
+        session["pending_invite"] = {
+            "email": email,
+            "password": password,
+            "created_at": time.time()
+        }
+
+        # 记录成功邀请
+        add_invite_record(user, email, password, True, "邀请发送成功")
+
+        return jsonify({
+            "success": True,
+            "message": "邀请流程已启动",
+            "result": result,
+            "next": "poll_code"
+        })
+
     finally:
+        # 释放信号量
+        if semaphore_token:
+            release_semaphore(semaphore_token)
         # 释放用户锁
         release_invite_lock(user_id, user_lock)
 
