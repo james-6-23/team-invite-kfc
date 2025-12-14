@@ -24,8 +24,8 @@ services:
       - LINUXDO_REDIRECT_URI=${LINUXDO_REDIRECT_URI:-http://127.0.0.1:39001/callback}
       # 邮箱平台
       - EMAIL_API_AUTH=${EMAIL_API_AUTH}
-      - EMAIL_API_BASE=${EMAIL_API_BASE:-https://kyx-cloud-email.kkyyxx.top/api/public}
-      - EMAIL_DOMAIN=${EMAIL_DOMAIN:-kyx03.de}
+      - EMAIL_API_BASE=${EMAIL_API_BASE}
+      - EMAIL_DOMAIN=${EMAIL_DOMAIN}
       - EMAIL_ROLE=${EMAIL_ROLE:-gpt-team}
       # Redis
       - REDIS_HOST=redis

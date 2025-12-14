@@ -105,9 +105,16 @@ LINUXDO_USER_URL = "https://connect.linux.do/api/user"
 
 # 邮箱平台配置
 EMAIL_API_AUTH = os.getenv("EMAIL_API_AUTH")
-EMAIL_API_BASE = os.getenv("EMAIL_API_BASE", "https://kyx-cloud-email.kkyyxx.top/api/public")
-EMAIL_DOMAIN = os.getenv("EMAIL_DOMAIN", "kyx03.de")
+EMAIL_API_BASE = os.getenv("EMAIL_API_BASE")
+EMAIL_DOMAIN = os.getenv("EMAIL_DOMAIN")
 EMAIL_ROLE = os.getenv("EMAIL_ROLE", "gpt-team")
+# Derive web URL from API base (assumes API is at /api/public or similar, trims path)
+EMAIL_WEB_URL = os.getenv("EMAIL_WEB_URL")
+if not EMAIL_WEB_URL and EMAIL_API_BASE:
+    from urllib.parse import urlparse
+    parsed = urlparse(EMAIL_API_BASE)
+    EMAIL_WEB_URL = f"{parsed.scheme}://{parsed.netloc}"
+
 
 # 信任等级要求
 MIN_TRUST_LEVEL = int(os.getenv("MIN_TRUST_LEVEL", "1"))
@@ -1116,7 +1123,7 @@ def invite_page():
     # 获取用户邮箱信息
     user_email = session.get("user_email", "")
     user_password = session.get("user_password", DEFAULT_PASSWORD)
-    return render_template(
+        return render_template(
         "invite.html",
         user=user,
         invite_result=invite_result,
@@ -1124,7 +1131,9 @@ def invite_page():
         pending_invite=pending_invite,
         invite_status=invite_status,
         user_email=user_email,
-        user_password=user_password
+        user_password=user_password,
+        email_web_url=EMAIL_WEB_URL,
+        email_domain=EMAIL_DOMAIN
     )
 
 
@@ -1320,7 +1329,11 @@ def index():
     # 如果用户已登录，直接跳转到邀请页面
     if is_logged_in():
         return redirect(url_for("invite_page"))
-    return render_template("index.html", site_key=CF_TURNSTILE_SITE_KEY)
+    return render_template(
+        "index.html",
+        site_key=CF_TURNSTILE_SITE_KEY,
+        email_web_url=EMAIL_WEB_URL
+    )
 
 
 @app.route("/send-invites", methods=["POST"])

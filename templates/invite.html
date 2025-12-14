@@ -528,7 +528,7 @@
         <div class="relative w-full md:w-[65%] p-4 sm:p-6 md:p-10 flex flex-col z-20 overflow-hidden">
             <!-- Top Links -->
             <div class="flex justify-end gap-2 sm:gap-4 mb-4 sm:mb-6 md:mb-10">
-                <a href="https://kyx-cloud-email.kkyyxx.top/" target="_blank"
+                <a href="{{ email_web_url }}" target="_blank"
                     class="text-[11px] sm:text-xs text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg hover:bg-white/5">
                     <i class="fa-solid fa-inbox"></i> <span class="hidden xs:inline">邮箱</span>
                 </a>
@@ -628,7 +628,8 @@
             username: '{{ user.username | lower }}',
             name: '{{ user.name or user.username }}',
             trustLevel: '{{ user.trust_level }}',
-            avatarUrl: '{{ user.avatar_template | replace("{size}", "128") }}'
+            avatarUrl: '{{ user.avatar_template | replace("{size}", "128") }}',
+            emailDomain: '{{ email_domain }}'
         };
 
         // 邀请结果（如果有）
@@ -667,7 +668,7 @@
         };
 
         // 使用邮箱：优先后端传递的，其次是待处理邀请，再次是邀请结果，最后是默认生成的
-        const email = USER_EMAIL || PENDING_INVITE.email || INVITE_RESULT.email || (USER.username + 'kfc@kyx03.de');
+        const email = USER_EMAIL || PENDING_INVITE.email || INVITE_RESULT.email || (USER.username + 'kfc@' + SERVER_DATA.emailDomain);
         const password = USER_PASSWORD || PENDING_INVITE.password || INVITE_RESULT.password || 'kfcvivo50';
 
         // --- POPULATE UI ---

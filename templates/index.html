@@ -134,14 +134,24 @@
         }
 
         @keyframes gradient-flow {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
         }
 
         @keyframes text-glow-pulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 filter: drop-shadow(0 0 8px rgba(10, 132, 255, 0.6)) drop-shadow(0 0 20px rgba(10, 132, 255, 0.3));
             }
+
             50% {
                 filter: drop-shadow(0 0 15px rgba(48, 209, 88, 0.8)) drop-shadow(0 0 30px rgba(48, 209, 88, 0.4));
             }
@@ -158,7 +168,8 @@
             <div class="text-8xl mb-8">🚗💥</div>
             <h1 class="text-6xl md:text-8xl font-black text-red-500 mb-4 tracking-tight">车已翻</h1>
             <p class="text-zinc-500 text-lg mb-8">Team 账户状态异常，服务暂时不可用</p>
-            <button onclick="location.reload()" class="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white transition-all">
+            <button onclick="location.reload()"
+                class="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white transition-all">
                 <i class="fa-solid fa-refresh mr-2"></i>重新检查
             </button>
         </div>
@@ -167,7 +178,8 @@
     <!-- Loading Screen -->
     <div id="loading-screen" class="fixed inset-0 z-40 flex items-center justify-center bg-black">
         <div class="text-center">
-            <div class="w-12 h-12 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-4 mx-auto"></div>
+            <div class="w-12 h-12 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-4 mx-auto">
+            </div>
             <p class="text-zinc-500 text-sm">正在检查车况...</p>
         </div>
     </div>
@@ -274,8 +286,7 @@
                 <div
                     class="p-4 rounded-xl bg-white/[0.02] border border-white/5 backdrop-blur-sm group hover:bg-white/[0.04] transition-all duration-300">
                     <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/5 border-dashed">
-                        <span
-                            class="text-[11px] text-zinc-500 font-medium tracking-wide flex items-center gap-1.5">
+                        <span class="text-[11px] text-zinc-500 font-medium tracking-wide flex items-center gap-1.5">
                             <i class="fa-solid fa-server text-[10px] opacity-70"></i>
                             TEAM-STATUS
                         </span>
@@ -299,7 +310,7 @@
             <!-- Footer -->
             <div class="relative z-10 shrink-0">
                 <div class="flex items-center gap-3 pt-3 border-t border-white/5">
-                    <a href="https://kyx-cloud-email.kkyyxx.top/" target="_blank"
+                    <a href="{{ email_web_url }}" target="_blank"
                         class="link-icon w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 hover:text-white text-zinc-500 transition-all border border-transparent hover:border-white/10">
                         <i class="fa-solid fa-inbox text-[10px]"></i>
                     </a>
